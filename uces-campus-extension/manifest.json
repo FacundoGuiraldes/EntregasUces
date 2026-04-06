@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "UCES Importador de Actividades",
+  "version": "1.0.0",
+  "description": "Extrae las próximas actividades desde Campus UCES y las carga en la app Entregas UCES.",
+  "permissions": ["activeTab", "tabs", "storage"],
+  "host_permissions": [
+    "https://*.uces.edu.ar/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://facundoguiraldes.github.io/*",
+    "file:///*"
+  ],
+  "action": {
+    "default_title": "UCES Importador",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.uces.edu.ar/*"],
+      "js": ["content-campus.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://facundoguiraldes.github.io/*",
+        "file:///*"
+      ],
+      "js": ["content-app.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -26,6 +26,7 @@ const enableNotificationsBtn = document.getElementById("enableNotificationsBtn")
 const loadExampleBtn = document.getElementById("loadExampleBtn");
 const clearAllBtn = document.getElementById("clearAllBtn");
 const emptyStateTemplate = document.getElementById("emptyStateTemplate");
+const importStatus = document.getElementById("importStatus");
 
 init();
 
@@ -33,6 +34,10 @@ function init() {
   loadSubjects();
   state.assignments = loadAssignments();
   bindEvents();
+  bindImportBridge();
+  updateImportStatus(
+    "Esperando actividades próximas importadas desde la sección ACTIVIDADES de Campus UCES."
+  );
   render();
   updateNotificationUI();
   checkUpcomingNotifications();
@@ -76,6 +81,168 @@ function bindEvents() {
       deleteAssignment(id);
     }
   });
+}
+
+function bindImportBridge() {
+  window.addEventListener("message", (event) => {
+    const payload = event.data;
+
+    if (!payload || payload.type !== "UCES_IMPORT_ACTIVITIES") {
+      return;
+    }
+
+    const importedCount = importAssignmentsFromCampus(payload.assignments || []);
+    updateImportStatus(
+      importedCount
+        ? `Se importaron ${importedCount} actividades próximas desde Campus UCES.`
+        : "No se encontraron actividades nuevas para importar desde Campus UCES."
+    );
+  });
+
+  window.importUCESActivities = (assignments = []) => {
+    const importedCount = importAssignmentsFromCampus(assignments);
+    updateImportStatus(
+      importedCount
+        ? `Se importaron ${importedCount} actividades próximas desde Campus UCES.`
+        : "No se encontraron actividades nuevas para importar desde Campus UCES."
+    );
+    return importedCount;
+  };
+}
+
+function updateImportStatus(message) {
+  if (importStatus) {
+    importStatus.textContent = message;
+  }
+}
+
+function importAssignmentsFromCampus(items) {
+  if (!Array.isArray(items) || !items.length) {
+    return 0;
+  }
+
+  let importedCount = 0;
+
+  items.forEach((item) => {
+    const normalized = normalizeImportedAssignment(item);
+
+    if (!normalized || isDuplicateAssignment(normalized)) {
+      return;
+    }
+
+    state.assignments.push(normalized);
+    importedCount += 1;
+  });
+
+  if (importedCount) {
+    persistAssignments();
+    render();
+    checkUpcomingNotifications(true);
+  }
+
+  return importedCount;
+}
+
+function normalizeImportedAssignment(item) {
+  const rawText = [item?.title, item?.subject, item?.notes].filter(Boolean).join(" · ");
+  const title = String(item?.title || item?.name || item?.activity || "Actividad Campus")
+    .trim();
+  const subject = inferSubject(item?.subject || item?.course || item?.materia || rawText);
+  const dueAt = normalizeDueAt(
+    item?.dueAt || item?.dueDate || item?.deadline || item?.fecha || item?.date
+  );
+
+  if (!title || !dueAt) {
+    return null;
+  }
+
+  if (new Date(dueAt).getTime() < Date.now()) {
+    return null;
+  }
+
+  const notes = [
+    "Importado desde Campus UCES",
+    item?.status ? `Estado: ${String(item.status).trim()}` : "",
+    item?.notes ? String(item.notes).trim() : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return {
+    id: createId(),
+    title,
+    subject,
+    dueAt,
+    notes,
+    completed: false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function normalizeDueAt(value) {
+  if (!value) {
+    return "";
+  }
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(text)) {
+    return text;
+  }
+
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    const year = parsedDate.getFullYear();
+    const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+    const day = String(parsedDate.getDate()).padStart(2, "0");
+    const hours = String(parsedDate.getHours()).padStart(2, "0");
+    const minutes = String(parsedDate.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  const match = text.match(
+    /(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D+(\d{1,2})[:.](\d{2}))?/
+  );
+
+  if (!match) {
+    return "";
+  }
+
+  const [, day, month, year, hours = "23", minutes = "59"] = match;
+  const fullYear = year.length === 2 ? `20${year}` : year;
+
+  return `${fullYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function inferSubject(value) {
+  const normalizedValue = normalizeText(value || "");
+  const matched = SUBJECTS.find((subject) =>
+    normalizedValue.includes(normalizeText(subject))
+  );
+
+  if (matched) {
+    return matched;
+  }
+
+  const fallback = String(value || "").trim();
+  return fallback && fallback.length <= 60 ? fallback : "Campus UCES";
+}
+
+function isDuplicateAssignment(candidate) {
+  return state.assignments.some(
+    (item) =>
+      normalizeText(item.title) === normalizeText(candidate.title) &&
+      normalizeText(item.subject) === normalizeText(candidate.subject) &&
+      item.dueAt === candidate.dueAt
+  );
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function handleSubmit(event) {

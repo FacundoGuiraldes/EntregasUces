@@ -206,6 +206,25 @@ h1 {
   background: linear-gradient(90deg, rgba(0, 122, 90, 0.04) 0%, rgba(223, 243, 236, 0.9) 100%);
 }
 
+.import-panel {
+  margin-bottom: 18px;
+  background: linear-gradient(90deg, rgba(0, 122, 90, 0.03) 0%, rgba(255, 255, 255, 1) 100%);
+}
+
+.import-panel p {
+  margin-bottom: 0;
+}
+
+.import-steps {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.import-steps li + li {
+  margin-top: 8px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 360px 1fr;

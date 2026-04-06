@@ -1,6 +1,6 @@
 # UCES · Próximas Entregas
 
-App web simple con diseño visual inspirado en la identidad verde y blanca de UCES para llevar el control de entregas de:
+App web simple con diseño visual del alumno Facundo Guiraldes, inspirado en la identidad verde y blanca de UCES para llevar el control de entregas de:
 
 - `Arquitectura en Computadoras`
 - `Integración Tecnológico Académica`
@@ -15,6 +15,7 @@ App web simple con diseño visual inspirado en la identidad verde y blanca de UC
 - Muestra cuáles están próximas, vencidas o completadas.
 - Guarda la información en el navegador (`localStorage`).
 - Puede mostrar notificaciones del navegador para entregas cercanas.
+- Soporta importación desde una extensión para leer las próximas entradas de la sección `ACTIVIDADES` de Campus UCES.
 
 > Nota: las notificaciones funcionan mientras la app está abierta en `localhost`.
 
@@ -31,8 +32,28 @@ py -m http.server 3000
 4. Presioná **Activar notificaciones**.
 5. Cargá tus entregas reales.
 
+## Extensión para importar desde Campus UCES
+
+Dentro de la carpeta `uces-campus-extension/` quedó una extensión para Chrome/Edge que:
+
+1. se usa estando logueado en Campus UCES,
+2. toma solo las actividades visibles de la sección `ACTIVIDADES`,
+3. filtra las próximas,
+4. y las envía a esta app automáticamente.
+
+### Instalación rápida
+
+1. Abrí `chrome://extensions/` o `edge://extensions/`
+2. Activá **Modo desarrollador**
+3. Elegí **Cargar descomprimida**
+4. Seleccioná la carpeta `uces-campus-extension`
+5. Abrí tu Campus UCES en `ACTIVIDADES` y usá la extensión
+
+> Si abrís la app con `file:///...`, habilitá también el acceso de la extensión a URLs locales.
+
 ## Archivos
 
 - `index.html`: interfaz principal
 - `styles.css`: estilos
 - `app.js`: lógica de la app
+- `uces-campus-extension/`: extensión de importación desde Campus UCES
