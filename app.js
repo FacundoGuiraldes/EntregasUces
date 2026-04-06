@@ -6,18 +6,32 @@ const DEFAULT_SAMPLE_SUBJECTS = [
 
 const STORAGE_KEY = "uces-upcoming-assignments";
 const SUBJECTS_STORAGE_KEY = "uces-subjects";
+const SUBJECT_SCHEDULES_KEY = "uces-subject-schedules";
 const ALERTS_KEY = "uces-upcoming-alerts";
+const WEEKDAY_OPTIONS = [
+  { value: 0, short: "Lun", label: "Lunes" },
+  { value: 1, short: "Mar", label: "Martes" },
+  { value: 2, short: "Mié", label: "Miércoles" },
+  { value: 3, short: "Jue", label: "Jueves" },
+  { value: 4, short: "Vie", label: "Viernes" },
+  { value: 5, short: "Sáb", label: "Sábado" },
+  { value: 6, short: "Dom", label: "Domingo" },
+];
 
 const state = {
   assignments: [],
   subjects: [],
+  subjectSchedules: {},
   filter: "all",
+  editingId: null,
+  calendarDate: getMonthStart(new Date()),
 };
 
 const form = document.getElementById("assignmentForm");
 const subjectSelect = document.getElementById("subject");
 const subjectManagerForm = document.getElementById("subjectManagerForm");
 const newSubjectInput = document.getElementById("newSubjectInput");
+const addSubjectBtn = document.getElementById("addSubjectBtn");
 const subjectChipList = document.getElementById("subjectChipList");
 const subjectCount = document.getElementById("subjectCount");
 const list = document.getElementById("assignmentList");
@@ -35,11 +49,21 @@ const remindersMenuBtn = document.getElementById("remindersMenuBtn");
 const subjectsDropdown = document.getElementById("subjectsDropdown");
 const remindersDropdown = document.getElementById("remindersDropdown");
 const subjectSections = document.getElementById("subjectSections");
+const formTitle = document.getElementById("formTitle");
+const formModeHint = document.getElementById("formModeHint");
+const submitAssignmentBtn = document.getElementById("submitAssignmentBtn");
+const cancelEditBtn = document.getElementById("cancelEditBtn");
+const calendarGrid = document.getElementById("calendarGrid");
+const calendarAgenda = document.getElementById("calendarAgenda");
+const calendarMonthLabel = document.getElementById("calendarMonthLabel");
+const prevMonthBtn = document.getElementById("prevMonthBtn");
+const nextMonthBtn = document.getElementById("nextMonthBtn");
 
 init();
 
 function init() {
   state.subjects = loadStoredSubjects();
+  state.subjectSchedules = loadStoredSubjectSchedules();
   state.assignments = loadAssignments();
   loadSubjects();
   bindEvents();
@@ -60,7 +84,11 @@ function loadSubjects() {
 function loadStoredSubjects() {
   try {
     const stored = JSON.parse(localStorage.getItem(SUBJECTS_STORAGE_KEY) || "[]");
-    return uniqueSubjectList(stored);
+    return uniqueSubjectList(
+      stored
+        .map((subject) => stripSubjectNoise(subject))
+        .filter((subject) => subject && !isLikelyPlaceholderSubject(subject))
+    );
   } catch {
     return [];
   }
@@ -68,6 +96,30 @@ function loadStoredSubjects() {
 
 function persistSubjects() {
   localStorage.setItem(SUBJECTS_STORAGE_KEY, JSON.stringify(state.subjects));
+}
+
+function loadStoredSubjectSchedules() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SUBJECT_SCHEDULES_KEY) || "{}");
+    return Object.fromEntries(
+      Object.entries(stored || {})
+        .map(([subject, days]) => {
+          const sanitizedSubject = sanitizeSubjectName(subject);
+          const validDays = [...new Set((Array.isArray(days) ? days : []).map(Number))]
+            .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+            .sort((left, right) => left - right);
+
+          return [sanitizedSubject, validDays];
+        })
+        .filter(([subject, days]) => subject && days.length)
+    );
+  } catch {
+    return {};
+  }
+}
+
+function persistSubjectSchedules() {
+  localStorage.setItem(SUBJECT_SCHEDULES_KEY, JSON.stringify(state.subjectSchedules));
 }
 
 function sanitizeSubjectName(value) {
@@ -95,10 +147,12 @@ function uniqueSubjectList(subjects) {
 }
 
 function getVisibleSubjects() {
-  return uniqueSubjectList([
-    ...state.subjects,
-    ...state.assignments.map((item) => sanitizeSubjectName(item.subject)),
-  ]);
+  return uniqueSubjectList(
+    [
+      ...state.subjects.map((subject) => stripSubjectNoise(subject)),
+      ...state.assignments.map((item) => stripSubjectNoise(item.subject || item.sourceSubject || "")),
+    ].filter((subject) => subject && !isLikelyPlaceholderSubject(subject))
+  );
 }
 
 function renderSubjectControls() {
@@ -133,6 +187,15 @@ function renderSubjectOptions() {
   subjectSelect.value = selected;
 }
 
+function getSubjectScheduleDays(subject) {
+  const sanitized = sanitizeSubjectName(subject);
+  const storedEntry = Object.entries(state.subjectSchedules).find(
+    ([key]) => normalizeText(key) === normalizeText(sanitized)
+  );
+
+  return storedEntry ? storedEntry[1] : [];
+}
+
 function renderSubjectChipList() {
   if (!subjectChipList) {
     return;
@@ -144,19 +207,46 @@ function renderSubjectChipList() {
   }
 
   subjectChipList.innerHTML = state.subjects
-    .map(
-      (subject) => `
-        <span class="subject-chip">
-          ${escapeHtml(subject)}
-          <button type="button" class="subject-chip-remove" data-remove-subject="${escapeHtml(subject)}" aria-label="Quitar ${escapeHtml(subject)}">×</button>
-        </span>
-      `
-    )
+    .map((subject) => {
+      const selectedDays = getSubjectScheduleDays(subject);
+      const summary = selectedDays.length
+        ? `Cursás: ${selectedDays
+            .map((day) => WEEKDAY_OPTIONS.find((option) => option.value === day)?.label)
+            .filter(Boolean)
+            .join(", ")}`
+        : "Marcá los días de cursada de esta materia.";
+
+      return `
+        <div class="subject-schedule-item">
+          <div class="subject-chip">
+            <span>${escapeHtml(subject)}</span>
+            <button type="button" class="subject-chip-remove" data-remove-subject="${escapeHtml(subject)}" aria-label="Quitar ${escapeHtml(subject)}">×</button>
+          </div>
+          <div class="subject-weekdays" aria-label="Días de cursada de ${escapeHtml(subject)}">
+            ${WEEKDAY_OPTIONS.map(
+              (day) => `
+                <button
+                  type="button"
+                  class="weekday-toggle ${selectedDays.includes(day.value) ? "active" : ""}"
+                  data-schedule-subject="${escapeHtml(subject)}"
+                  data-schedule-day="${day.value}"
+                  aria-pressed="${selectedDays.includes(day.value) ? "true" : "false"}"
+                  title="${day.label}"
+                >
+                  ${day.short}
+                </button>
+              `
+            ).join("")}
+          </div>
+          <small class="subject-schedule-summary">${escapeHtml(summary)}</small>
+        </div>
+      `;
+    })
     .join("");
 }
 
 function handleSubjectSubmit(event) {
-  event.preventDefault();
+  event?.preventDefault?.();
   addSubject(newSubjectInput?.value || "");
 
   if (newSubjectInput) {
@@ -166,7 +256,10 @@ function handleSubjectSubmit(event) {
 }
 
 function ensureSubjects(subjects, persist = true) {
-  const nextSubjects = uniqueSubjectList([...state.subjects, ...subjects]);
+  const cleanedSubjects = subjects
+    .map((subject) => stripSubjectNoise(subject))
+    .filter((subject) => subject && !isLikelyPlaceholderSubject(subject));
+  const nextSubjects = uniqueSubjectList([...state.subjects, ...cleanedSubjects]);
   const changed = nextSubjects.length !== state.subjects.length;
 
   if (!changed) {
@@ -180,6 +273,34 @@ function ensureSubjects(subjects, persist = true) {
   }
 
   return true;
+}
+
+function toggleSubjectScheduleDay(subjectName, dayValue) {
+  const sanitized = sanitizeSubjectName(subjectName);
+  if (!sanitized || !Number.isInteger(dayValue) || dayValue < 0 || dayValue > 6) {
+    return;
+  }
+
+  const currentDays = getSubjectScheduleDays(sanitized);
+  const nextDays = currentDays.includes(dayValue)
+    ? currentDays.filter((day) => day !== dayValue)
+    : [...currentDays, dayValue].sort((left, right) => left - right);
+
+  if (nextDays.length) {
+    state.subjectSchedules = {
+      ...state.subjectSchedules,
+      [sanitized]: nextDays,
+    };
+  } else {
+    Object.keys(state.subjectSchedules).forEach((key) => {
+      if (normalizeText(key) === normalizeText(sanitized)) {
+        delete state.subjectSchedules[key];
+      }
+    });
+  }
+
+  persistSubjectSchedules();
+  render();
 }
 
 function addSubject(subjectName) {
@@ -208,7 +329,7 @@ function removeSubject(subjectName) {
 
   const confirmed = window.confirm(
     relatedAssignments.length
-      ? `Si quitás la materia "${sanitized}", también se eliminarán ${relatedAssignments.length} entrega(s) asociada(s). ¿Querés continuar?`
+      ? `Si quitás la materia "${sanitized}", las ${relatedAssignments.length} entrega(s) asociada(s) quedarán sin materia para que puedas reasignarlas. ¿Querés continuar?`
       : `¿Querés quitar la materia "${sanitized}"?`
   );
 
@@ -218,22 +339,43 @@ function removeSubject(subjectName) {
 
   state.subjects = state.subjects.filter((subject) => normalizeText(subject) !== normalizeText(sanitized));
   if (relatedAssignments.length) {
-    state.assignments = state.assignments.filter(
-      (item) => getAssignmentSubject(item) !== sanitized
+    state.assignments = state.assignments.map((item) =>
+      getAssignmentSubject(item) === sanitized
+        ? {
+            ...item,
+            subject: "Sin materia asignada",
+            sourceSubject: "",
+          }
+        : item
     );
     persistAssignments();
   }
 
+  Object.keys(state.subjectSchedules).forEach((key) => {
+    if (normalizeText(key) === normalizeText(sanitized)) {
+      delete state.subjectSchedules[key];
+    }
+  });
+
   persistSubjects();
+  persistSubjectSchedules();
   render();
 }
 
 function bindEvents() {
   form.addEventListener("submit", handleSubmit);
-  subjectManagerForm?.addEventListener("submit", handleSubjectSubmit);
+  addSubjectBtn?.addEventListener("click", handleSubjectSubmit);
+  newSubjectInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      handleSubjectSubmit(event);
+    }
+  });
   enableNotificationsBtn.addEventListener("click", requestNotificationPermission);
   loadExampleBtn.addEventListener("click", loadExampleData);
   clearAllBtn.addEventListener("click", clearAll);
+  cancelEditBtn?.addEventListener("click", resetAssignmentForm);
+  prevMonthBtn?.addEventListener("click", () => shiftCalendarMonth(-1));
+  nextMonthBtn?.addEventListener("click", () => shiftCalendarMonth(1));
   subjectsMenuBtn?.addEventListener("click", () => toggleDropdown("subjects"));
   remindersMenuBtn?.addEventListener("click", () => toggleDropdown("reminders"));
 
@@ -244,6 +386,15 @@ function bindEvents() {
   });
 
   subjectChipList?.addEventListener("click", (event) => {
+    const scheduleButton = event.target.closest("[data-schedule-subject]");
+    if (scheduleButton) {
+      toggleSubjectScheduleDay(
+        scheduleButton.dataset.scheduleSubject || "",
+        Number(scheduleButton.dataset.scheduleDay)
+      );
+      return;
+    }
+
     const button = event.target.closest("[data-remove-subject]");
     if (!button) {
       return;
@@ -284,8 +435,14 @@ function bindEvents() {
   });
 
   list.addEventListener("click", (event) => {
-    const action = event.target.dataset.action;
-    const id = event.target.dataset.id;
+    const actionButton = event.target.closest("[data-action][data-id]");
+    if (!actionButton) {
+      return;
+    }
+
+    event.preventDefault();
+    const action = actionButton.dataset.action;
+    const id = actionButton.dataset.id;
 
     if (!action || !id) {
       return;
@@ -293,6 +450,10 @@ function bindEvents() {
 
     if (action === "toggle") {
       toggleCompleted(id);
+    }
+
+    if (action === "edit") {
+      startEditingAssignment(id);
     }
 
     if (action === "delete") {
@@ -345,7 +506,32 @@ function importAssignmentsFromCampus(items) {
   items.forEach((item) => {
     const normalized = normalizeImportedAssignment(item);
 
-    if (!normalized || isDuplicateAssignment(normalized)) {
+    if (!normalized) {
+      return;
+    }
+
+    const existingMatchIndex = findExistingAssignmentMatch(normalized);
+    if (existingMatchIndex >= 0) {
+      const currentItem = state.assignments[existingMatchIndex];
+      const shouldRefreshTitle =
+        isMetadataOnlyTitle(currentItem.title) ||
+        normalizeText(currentItem.title) === "actividad campus" ||
+        normalizeText(currentItem.title) === normalizeText(getAssignmentSubject(currentItem)) ||
+        isDateLikeText(currentItem.title);
+
+      state.assignments[existingMatchIndex] = {
+        ...currentItem,
+        title: shouldRefreshTitle ? normalized.title : currentItem.title,
+        subject: normalized.subject,
+        dueAt: normalized.dueAt,
+        notes: normalized.notes || currentItem.notes,
+        sourceContext: normalized.sourceContext || currentItem.sourceContext,
+      };
+      importedCount += shouldRefreshTitle ? 1 : 0;
+      return;
+    }
+
+    if (isDuplicateAssignment(normalized)) {
       return;
     }
 
@@ -378,12 +564,17 @@ function normalizeImportedAssignment(item) {
   ]
     .filter(Boolean)
     .join(" · ");
-  const title = String(item?.title || item?.name || item?.activity || "Actividad Campus")
-    .trim();
   const subject = inferSubject(
     item?.sourceSubject || item?.subject || item?.course || item?.materia || "",
     item?.context || rawText
   );
+  const rawImportedNotes = sanitizeImportedNotes(item?.notes ? String(item.notes).trim() : "");
+  const title = sanitizeImportedTitle(
+    item?.title || item?.name || item?.activity || "Actividad Campus",
+    `${rawImportedNotes} · ${rawText}`,
+    [subject]
+  );
+  const notes = buildImportedDescription(title, rawImportedNotes);
   const dueAt = normalizeDueAt(
     item?.dueAt || item?.dueDate || item?.deadline || item?.fecha || item?.date
   );
@@ -395,14 +586,6 @@ function normalizeImportedAssignment(item) {
   if (new Date(dueAt).getTime() < Date.now()) {
     return null;
   }
-
-  const notes = [
-    "Importado desde Campus UCES",
-    item?.status ? `Estado: ${String(item.status).trim()}` : "",
-    item?.notes ? String(item.notes).trim() : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
 
   return {
     id: createId(),
@@ -451,13 +634,26 @@ function normalizeDueAt(value) {
   return `${fullYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+function stripSubjectNoise(value) {
+  return sanitizeSubjectName(value)
+    .replace(/^(materia|curso|asignatura|c[áa]tedra)\s*:?\s*/i, "")
+    .replace(/^((?:1|2|3|4)(?:er|do)?\s*(?:bim\.?|bimestre|cuatrimestre|trimestre)|primer\s+bimestre|segundo\s+bimestre)\s*[:.-]?\s*/i, "")
+    .replace(/\b(?:educaci[oó]n\s+a\s+distancia|modalidad\s+(?:virtual|presencial|mixta)|a\s+distancia|virtual|presencial)\b/gi, "")
+    .replace(/\b20\d{2}\b/g, "")
+    .replace(/\b(?:campus|inicio|actividades?|obligatorias?|optativas?)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function matchExistingSubject(value) {
-  const normalizedValue = normalizeText(value || "");
+  const normalizedValue = normalizeText(stripSubjectNoise(value));
   if (!normalizedValue) {
     return "";
   }
 
-  const visibleSubjects = getVisibleSubjects();
+  const visibleSubjects = getVisibleSubjects().filter(
+    (subject) => !isLikelyPlaceholderSubject(subject)
+  );
 
   return (
     visibleSubjects.find((subject) => normalizeText(subject) === normalizedValue) ||
@@ -471,8 +667,8 @@ function matchExistingSubject(value) {
 }
 
 function extractSubjectLabel(value) {
-  const cleanedValue = sanitizeSubjectName(value);
-  if (!cleanedValue) {
+  const cleanedValue = stripSubjectNoise(value);
+  if (!cleanedValue || isLikelyPlaceholderSubject(cleanedValue) || !/[a-záéíóúñ]/i.test(cleanedValue)) {
     return "";
   }
 
@@ -481,10 +677,25 @@ function extractSubjectLabel(value) {
   );
 
   if (labelledMatch?.[1]) {
-    return sanitizeSubjectName(labelledMatch[1]);
+    const labelledValue = stripSubjectNoise(labelledMatch[1]);
+    if (!isLikelyPlaceholderSubject(labelledValue) && /[a-záéíóúñ]/i.test(labelledValue)) {
+      return labelledValue;
+    }
   }
 
-  return cleanedValue.length <= 60 ? cleanedValue : "";
+  const candidateParts = cleanedValue
+    .split(/\s*[>|»/·-]\s*/)
+    .map(stripSubjectNoise)
+    .filter(Boolean);
+
+  const bestCandidate = candidateParts.find(
+    (part) =>
+      part.length <= 60 &&
+      !isLikelyPlaceholderSubject(part) &&
+      /[a-záéíóúñ]/i.test(part)
+  );
+
+  return bestCandidate || (cleanedValue.length <= 60 && !isLikelyPlaceholderSubject(cleanedValue) ? cleanedValue : "");
 }
 
 function inferSubject(value, fallbackContext = "") {
@@ -500,7 +711,9 @@ function inferSubject(value, fallbackContext = "") {
     return extractedSubject;
   }
 
-  return directValue || "Sin materia asignada";
+  return !isLikelyPlaceholderSubject(directValue) && /[a-záéíóúñ]/i.test(directValue)
+    ? directValue
+    : "Sin materia asignada";
 }
 
 function getAssignmentSubject(item) {
@@ -519,12 +732,130 @@ function isDuplicateAssignment(candidate) {
   );
 }
 
+function findExistingAssignmentMatch(candidate) {
+  return state.assignments.findIndex((item) => {
+    const currentSubject = getAssignmentSubject(item);
+    const candidateSubject = getAssignmentSubject(candidate);
+
+    return (
+      item.dueAt === candidate.dueAt &&
+      (
+        normalizeText(currentSubject) === normalizeText(candidateSubject) ||
+        isLikelyPlaceholderSubject(currentSubject)
+      ) &&
+      (
+        normalizeText(item.title) === normalizeText(candidate.title) ||
+        isMetadataOnlyTitle(item.title) ||
+        normalizeText(item.title) === "actividad campus" ||
+        normalizeText(item.title) === normalizeText(currentSubject) ||
+        isDateLikeText(item.title)
+      )
+    );
+  });
+}
+
 function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+function stripMetadataPrefix(value) {
+  return String(value || "")
+    .replace(
+      /^(estado|apertura|apretura|cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|disponible\s+desde|inicio|pr[oó]xima|pendiente)\s*:?\s*/i,
+      ""
+    )
+    .trim();
+}
+
+function isDateLikeText(value) {
+  const text = String(value || "").trim();
+
+  return /^(lunes|martes|mi[eé]rcoles|miercoles|jueves|viernes|s[aá]bado|sabado|domingo),?\s+\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{2,4}(?:,?\s+\d{1,2}:\d{2})?$/i.test(text) ||
+    /^\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{2,4}(?:,?\s+\d{1,2}:\d{2})?$/i.test(text) ||
+    /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\s+\d{1,2}:\d{2})?$/.test(text);
+}
+
+function isLikelyPlaceholderSubject(value) {
+  const text = String(value || "").trim();
+  return /^\d{4}$/.test(text) ||
+    /^(?:\(?\d+\)?\s*)?(tecnicatura|licenciatura|ingenier[ií]a|profesorado|maestr[ií]a|doctorado|especializaci[oó]n|carrera|facultad|universidad|campus)\b/i.test(text) ||
+    /^(educaci[oó]n\s+a\s+distancia|modalidad\s+(?:virtual|presencial|mixta)|a\s+distancia|virtual|presencial)$/i.test(text) ||
+    /^((?:1|2|3|4)(?:er|do)?\s*(?:bim\.?|bimestre|cuatrimestre|trimestre)|primer\s+bimestre|segundo\s+bimestre|sin\s+materia\s+asignada)(?:\s|$|[:.-])/i.test(text) ||
+    isDateLikeText(text);
+}
+
+function isMetadataOnlyTitle(value) {
+  const rawValue = String(value || "").trim();
+  const strippedValue = stripMetadataPrefix(rawValue);
+  return Boolean(rawValue) && (!strippedValue || isDateLikeText(strippedValue));
+}
+
+function sanitizeImportedTitle(value, fallbackText = "", blockedValues = []) {
+  const blocked = blockedValues.map((item) => normalizeText(item)).filter(Boolean);
+  const cleanValue = stripMetadataPrefix(value);
+
+  if (
+    cleanValue &&
+    !blocked.includes(normalizeText(cleanValue)) &&
+    !isDateLikeText(cleanValue) &&
+    !isLikelyPlaceholderSubject(cleanValue)
+  ) {
+    return cleanValue;
+  }
+
+  const fallback = String(fallbackText || "")
+    .split(/\s*·\s*/)
+    .map((part) => stripMetadataPrefix(part))
+    .find(
+      (part) =>
+        part.length > 4 &&
+        part.length <= 120 &&
+        !blocked.includes(normalizeText(part)) &&
+        !isMetadataOnlyTitle(part) &&
+        !isDateLikeText(part) &&
+        !isLikelyPlaceholderSubject(part) &&
+        !/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.test(part)
+    );
+
+  return fallback || "Actividad Campus";
+}
+
+function sanitizeImportedNotes(value) {
+  const rawText = String(value || "").trim();
+  if (!rawText) {
+    return "";
+  }
+
+  const parts = rawText
+    .split(/\s*·\s*/)
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  return parts
+    .filter(
+      (part) =>
+        !/^(importado\s+desde\s+campus\s+uces|estado|apertura|apretura|cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|disponible\s+desde|inicio)\s*:?/i.test(part)
+    )
+    .filter(
+      (part, index, collection) =>
+        collection.findIndex((candidate) => normalizeText(candidate) === normalizeText(part)) === index
+    )
+    .join(" · ");
+}
+
+function buildImportedDescription(title, notes = "") {
+  const cleanTitle = String(title || "").trim();
+  const cleanNotes = String(notes || "").trim();
+
+  if (cleanTitle) {
+    return cleanTitle;
+  }
+
+  return cleanNotes;
 }
 
 function toggleDropdown(type) {
@@ -575,32 +906,116 @@ function handleSubmit(event) {
   }
 
   const normalizedSubject = inferSubject(subject);
+  const dueAt = `${dueDate}T${dueTime}`;
   ensureSubjects([normalizedSubject], false);
 
-  state.assignments.push({
-    id: createId(),
-    title,
-    subject: normalizedSubject,
-    dueAt: `${dueDate}T${dueTime}`,
-    notes,
-    completed: false,
-    createdAt: new Date().toISOString(),
-  });
+  if (state.editingId) {
+    state.assignments = state.assignments.map((item) =>
+      item.id === state.editingId
+        ? {
+            ...item,
+            title,
+            subject: normalizedSubject,
+            dueAt,
+            notes,
+          }
+        : item
+    );
+  } else {
+    state.assignments.push({
+      id: createId(),
+      title,
+      subject: normalizedSubject,
+      dueAt,
+      notes,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    });
+  }
 
   persistSubjects();
   persistAssignments();
-  form.reset();
-  document.getElementById("dueTime").value = "23:59";
+  resetAssignmentForm();
   render();
   checkUpcomingNotifications();
 }
 
 function render() {
   renderSubjectControls();
+  renderFormMode();
   renderStats();
+  renderCalendar();
   renderHeaderMenus();
   renderAssignments();
   renderSubjectSections();
+}
+
+function renderFormMode() {
+  const isEditing = Boolean(state.editingId);
+
+  if (formTitle) {
+    formTitle.textContent = isEditing ? "Editar entrega" : "Cargar entrega manual";
+  }
+
+  if (formModeHint) {
+    formModeHint.hidden = !isEditing;
+    formModeHint.textContent = isEditing
+      ? "Estás editando una entrega existente. Podés cambiar la materia desde el selector y guardar los cambios."
+      : "";
+  }
+
+  if (submitAssignmentBtn) {
+    submitAssignmentBtn.textContent = isEditing ? "Guardar cambios" : "Guardar entrega";
+  }
+
+  if (cancelEditBtn) {
+    cancelEditBtn.hidden = !isEditing;
+  }
+}
+
+function resetAssignmentForm() {
+  state.editingId = null;
+  form?.reset();
+
+  const dueTimeInput = document.getElementById("dueTime");
+  if (dueTimeInput) {
+    dueTimeInput.value = "23:59";
+  }
+
+  renderSubjectControls();
+  renderFormMode();
+}
+
+function startEditingAssignment(id) {
+  const item = state.assignments.find((assignment) => assignment.id === id);
+  if (!item || !form) {
+    return;
+  }
+
+  state.editingId = id;
+  renderSubjectControls();
+
+  const [dueDate = "", dueTime = "23:59"] = String(item.dueAt || "").split("T");
+  const visibleSubjects = getVisibleSubjects();
+  const preferredSubject = getAssignmentSubject(item);
+
+  form.elements.title.value = item.title || "";
+  form.elements.subject.value = visibleSubjects.includes(preferredSubject)
+    ? preferredSubject
+    : visibleSubjects[0] || "";
+  form.elements.dueDate.value = dueDate;
+  form.elements.dueTime.value = dueTime.slice(0, 5) || "23:59";
+  form.elements.notes.value = item.notes || "";
+
+  renderFormMode();
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  if (!preferredSubject || isLikelyPlaceholderSubject(preferredSubject)) {
+    form.elements.subject?.focus();
+  } else {
+    form.elements.title?.focus();
+    form.elements.title?.select?.();
+  }
 }
 
 function renderHeaderMenus() {
@@ -748,6 +1163,167 @@ function renderSubjectSections() {
     .join("");
 }
 
+function getCalendarWeekdayValue(date) {
+  return (date.getDay() + 6) % 7;
+}
+
+function getScheduledSubjectsForDate(date) {
+  const dayValue = getCalendarWeekdayValue(date);
+  const visibleSubjects = getVisibleSubjects();
+
+  return Object.entries(state.subjectSchedules)
+    .filter(
+      ([subject, days]) =>
+        visibleSubjects.some((visible) => normalizeText(visible) === normalizeText(subject)) &&
+        Array.isArray(days) &&
+        days.includes(dayValue)
+    )
+    .map(([subject]) => subject)
+    .sort((left, right) => left.localeCompare(right, "es", { sensitivity: "base" }));
+}
+
+function renderCalendar() {
+  if (!calendarGrid || !calendarAgenda || !calendarMonthLabel) {
+    return;
+  }
+
+  const viewDate = getMonthStart(state.calendarDate || new Date());
+  state.calendarDate = viewDate;
+
+  calendarMonthLabel.textContent = new Intl.DateTimeFormat("es-AR", {
+    month: "long",
+    year: "numeric",
+  }).format(viewDate);
+
+  const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+  const lastDay = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+  const todayKey = formatDateKey(new Date());
+  const pendingAssignments = state.assignments.filter((item) => !item.completed);
+  const assignmentsByDate = pendingAssignments.reduce((acc, item) => {
+    const key = formatDateKey(item.dueAt);
+    if (!key) {
+      return acc;
+    }
+
+    acc[key] = acc[key] || [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
+  const weekdayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  const cells = [];
+
+  weekdayNames.forEach((dayName) => {
+    cells.push(`<div class="calendar-weekday">${dayName}</div>`);
+  });
+
+  for (let index = 0; index < totalCells; index += 1) {
+    const cellDate = new Date(firstDay.getFullYear(), firstDay.getMonth(), index - startOffset + 1);
+    const key = formatDateKey(cellDate);
+    const dayItems = (assignmentsByDate[key] || []).sort(
+      (a, b) => new Date(a.dueAt) - new Date(b.dueAt)
+    );
+    const scheduledSubjects = getScheduledSubjectsForDate(cellDate);
+    const isCurrentMonth = cellDate.getMonth() === viewDate.getMonth();
+    const hasOverdue = dayItems.some((item) => new Date(item.dueAt) < new Date());
+    const classes = ["calendar-day"];
+
+    if (!isCurrentMonth) {
+      classes.push("is-muted");
+    }
+
+    if (key === todayKey) {
+      classes.push("is-today");
+    }
+
+    if (dayItems.length) {
+      classes.push("has-items");
+    }
+
+    if (scheduledSubjects.length) {
+      classes.push("has-class");
+    }
+
+    if (hasOverdue) {
+      classes.push("is-overdue");
+    }
+
+    const preview = dayItems
+      .slice(0, 2)
+      .map((item) => `<span class="calendar-pill ${getStatus(item).type}">${escapeHtml(item.title)}</span>`)
+      .join("");
+
+    const classPreview = scheduledSubjects
+      .slice(0, 3)
+      .map((subject) => `<span class="calendar-pill class-day">Clase · ${escapeHtml(subject)}</span>`)
+      .join("");
+
+    cells.push(`
+      <article class="${classes.join(" ")}">
+        <div class="calendar-day-top">
+          <span class="calendar-date-number">${cellDate.getDate()}</span>
+          ${dayItems.length ? `<span class="calendar-count">${dayItems.length}</span>` : ""}
+        </div>
+        <div class="calendar-preview">
+          ${preview || ""}
+          ${classPreview || ""}
+          ${dayItems.length > 2 ? `<span class="calendar-more">+${dayItems.length - 2} más</span>` : ""}
+          ${scheduledSubjects.length > 3 ? `<span class="calendar-more">+${scheduledSubjects.length - 3} clase${scheduledSubjects.length - 3 === 1 ? "" : "s"}</span>` : ""}
+        </div>
+      </article>
+    `);
+  }
+
+  calendarGrid.innerHTML = cells.join("");
+
+  const monthItems = pendingAssignments
+    .filter((item) => {
+      const dueDate = new Date(item.dueAt);
+      return (
+        dueDate.getFullYear() === viewDate.getFullYear() &&
+        dueDate.getMonth() === viewDate.getMonth()
+      );
+    })
+    .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
+
+  if (!monthItems.length) {
+    calendarAgenda.innerHTML = '<div class="subject-empty">No hay pendientes cargados para este mes.</div>';
+    return;
+  }
+
+  calendarAgenda.innerHTML = `
+    <div class="calendar-agenda-header">
+      <strong>Agenda del mes</strong>
+      <span>${monthItems.length} pendiente${monthItems.length === 1 ? "" : "s"}</span>
+    </div>
+    <div class="calendar-agenda-list">
+      ${monthItems
+        .slice(0, 8)
+        .map((item) => {
+          const status = getStatus(item);
+          return `
+            <article class="calendar-agenda-item ${status.type}">
+              <div>
+                <strong>${escapeHtml(item.title)}</strong>
+                <p>${escapeHtml(getAssignmentSubject(item))}</p>
+              </div>
+              <span>${formatDue(item.dueAt)}</span>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function shiftCalendarMonth(delta) {
+  const current = getMonthStart(state.calendarDate || new Date());
+  state.calendarDate = new Date(current.getFullYear(), current.getMonth() + delta, 1);
+  renderCalendar();
+}
+
 function renderStats() {
   const now = new Date();
   const pending = state.assignments.filter((item) => !item.completed);
@@ -802,6 +1378,9 @@ function renderAssignments() {
             <button class="secondary-btn" data-action="toggle" data-id="${item.id}" type="button">
               ${item.completed ? "Marcar pendiente" : "Completar"}
             </button>
+            <button class="ghost-btn" data-action="edit" data-id="${item.id}" type="button">
+              Editar
+            </button>
             <button class="danger-btn" data-action="delete" data-id="${item.id}" type="button">
               Eliminar
             </button>
@@ -841,6 +1420,11 @@ function toggleCompleted(id) {
 
 function deleteAssignment(id) {
   state.assignments = state.assignments.filter((item) => item.id !== id);
+
+  if (state.editingId === id) {
+    resetAssignmentForm();
+  }
+
   persistAssignments();
   render();
 }
@@ -856,6 +1440,7 @@ function clearAll() {
   }
 
   state.assignments = [];
+  resetAssignmentForm();
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(ALERTS_KEY);
   render();
@@ -919,13 +1504,26 @@ function loadExampleData() {
 
 function loadAssignments() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((item) => ({
-      ...item,
-      subject: inferSubject(
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((item) => {
+      const subject = inferSubject(
         item.subject || item.sourceSubject || "",
         `${item.sourceContext || ""} ${item.title || ""} ${item.notes || ""}`
-      ),
-    }));
+      );
+      const title = sanitizeImportedTitle(
+        item.title || "",
+        `${item.notes || ""} · ${item.sourceContext || ""}`,
+        [subject]
+      );
+      const cleanedNotes = sanitizeImportedNotes(item.notes || "");
+      const isImported = Boolean(item.sourceContext);
+
+      return {
+        ...item,
+        title,
+        notes: isImported ? buildImportedDescription(title, cleanedNotes) : cleanedNotes,
+        subject,
+      };
+    });
   } catch {
     return [];
   }
@@ -978,6 +1576,24 @@ function formatDue(dateString) {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function getMonthStart(date) {
+  const baseDate = date instanceof Date ? date : new Date(date);
+  return new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+}
+
+function formatDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function createId() {

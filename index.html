@@ -62,7 +62,7 @@
           <h1>Una agenda UCES hecha para cualquier estudiante que quiera ordenar su cursada</h1>
           <p class="subtitle">
             Sumá tus propias materias, importá actividades desde Campus y organizá
-            cierres, entregas y recordatorios con una vista más clara y práctica.
+            cierres, entregas y recordatorios con una vista más clara, cálida y práctica.
           </p>
           <div class="hero-tags" aria-label="Características principales">
             <span>Materias configurables</span>
@@ -70,27 +70,66 @@
             <span>Recordatorios claros</span>
           </div>
         </div>
-        <div class="hero-badge">
-          <img src="assets/uces-logo.svg" alt="UCES" class="hero-logo" />
-          <span class="badge-label">Materias activas</span>
-          <strong id="subjectCount">0</strong>
-          <p class="hero-mini">configurá tu propia cursada</p>
+
+        <div class="hero-side">
+          <div class="hero-badge">
+            <img src="assets/uces-logo.svg" alt="UCES" class="hero-logo" />
+            <span class="badge-label">Materias activas</span>
+            <strong id="subjectCount">0</strong>
+            <p class="hero-mini">configurá tu propia cursada</p>
+          </div>
+
+          <aside class="mini-board" aria-label="Ruta rápida de uso">
+            <span class="mini-board-kicker">Ruta rápida</span>
+            <ul>
+              <li>Agregá tus materias del cuatrimestre</li>
+              <li>Importá solo lo próximo desde Campus</li>
+              <li>Revisá el radar y activá avisos</li>
+            </ul>
+          </aside>
         </div>
       </section>
 
       <section class="stats" aria-label="Resumen">
         <article class="stat-card">
-          <span>Total</span>
+          <span>📚 Total</span>
           <strong id="totalCount">0</strong>
+          <small>entregas registradas</small>
         </article>
         <article class="stat-card">
-          <span>Próximas 7 días</span>
+          <span>⏳ Próximas 7 días</span>
           <strong id="upcomingCount">0</strong>
+          <small>para priorizar esta semana</small>
         </article>
         <article class="stat-card">
-          <span>Vencidas</span>
+          <span>⚠️ Vencidas</span>
           <strong id="overdueCount">0</strong>
+          <small>para recuperar rápido</small>
         </article>
+      </section>
+
+      <section class="panel calendar-panel" aria-label="Calendario de pendientes">
+        <div class="calendar-header">
+          <div>
+            <h2>🗓️ Calendario de pendientes</h2>
+            <p>Visualizá el mes completo y detectá rápidamente qué días tienen entregas activas.</p>
+          </div>
+          <div class="calendar-controls">
+            <button id="prevMonthBtn" class="ghost-btn" type="button" aria-label="Mes anterior">←</button>
+            <strong id="calendarMonthLabel">Mes actual</strong>
+            <button id="nextMonthBtn" class="ghost-btn" type="button" aria-label="Mes siguiente">→</button>
+          </div>
+        </div>
+
+        <div class="calendar-legend" aria-label="Leyenda del calendario">
+          <span><i class="legend-dot today"></i> Hoy</span>
+          <span><i class="legend-dot upcoming"></i> Con pendientes</span>
+          <span><i class="legend-dot overdue"></i> Con vencidas</span>
+          <span><i class="legend-dot class-day"></i> Día de clase</span>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid"></div>
+        <div id="calendarAgenda" class="calendar-agenda"></div>
       </section>
 
       <section class="panel notifications-panel">
@@ -126,11 +165,15 @@
           <li>Hacé clic en la extensión <strong>UCES Importador</strong>.</li>
           <li>La app recibirá y guardará automáticamente las actividades próximas.</li>
         </ol>
+        <div class="import-callout">
+          <strong>Tip:</strong> dejá la extensión fijada en el navegador para importar más rápido cada vez que entrás al Campus.
+        </div>
       </section>
 
       <div class="grid">
         <section class="panel">
-          <h2>Cargar entrega manual</h2>
+          <h2 id="formTitle">Cargar entrega manual</h2>
+          <p id="formModeHint" class="form-mode-hint" hidden></p>
           <form id="assignmentForm" class="form">
             <label>
               Título
@@ -147,18 +190,21 @@
                 <div>
                   <p class="subject-manager-title">Tus materias</p>
                   <span class="subject-manager-note">Agregalas o quitalas cuando quieras</span>
+                  <p class="subject-schedule-tip">
+                    Marcá los días en que cursás cada materia para verlos en el calendario.
+                  </p>
                 </div>
               </div>
 
-              <form id="subjectManagerForm" class="subject-manager-form">
+              <div id="subjectManagerForm" class="subject-manager-form" role="group" aria-label="Agregar materia">
                 <input
                   id="newSubjectInput"
                   name="newSubject"
                   type="text"
                   placeholder="Ej: Análisis Matemático"
                 />
-                <button class="secondary-btn" type="submit">Agregar materia</button>
-              </form>
+                <button id="addSubjectBtn" class="secondary-btn" type="button">Agregar materia</button>
+              </div>
 
               <div id="subjectChipList" class="subject-chip-list"></div>
             </section>
@@ -181,7 +227,8 @@
             </label>
 
             <div class="actions">
-              <button class="primary-btn" type="submit">Guardar entrega</button>
+              <button id="submitAssignmentBtn" class="primary-btn" type="submit">Guardar entrega</button>
+              <button id="cancelEditBtn" class="secondary-btn" type="button" hidden>Cancelar edición</button>
               <button id="loadExampleBtn" class="ghost-btn" type="button">Cargar ejemplo</button>
             </div>
           </form>

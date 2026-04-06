@@ -108,17 +108,25 @@ function buildActivityFromElement(element, now, seen, pageSubject = "") {
     return null;
   }
 
-  const title = extractTitle(element);
+  const subject = extractSubject(element, text, pageSubject);
+  const title = resolveActivityTitle(element, subject, pageSubject);
   if (!title) {
     return null;
   }
 
-  const subject = extractSubject(element, text, pageSubject);
+  const titleKey = normalizeText(title);
+  const subjectKey = normalizeText(subject);
   const notes = (element.innerText || "")
     .split(/\n+/)
     .map(cleanText)
     .filter(Boolean)
-    .slice(0, 4)
+    .filter((line) => normalizeText(line) !== titleKey)
+    .filter((line) => normalizeText(line) !== subjectKey)
+    .filter(
+      (line) =>
+        !/^(estado|apertura|apretura|cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|disponible\s+desde|inicio)\s*:?/i.test(line)
+    )
+    .slice(0, 3)
     .join(" · ")
     .slice(0, 180);
 
@@ -142,30 +150,69 @@ function buildActivityFromElement(element, now, seen, pageSubject = "") {
   return activity;
 }
 
-function extractTitle(element) {
-  const preferred = cleanText(
-    element.querySelector('a, .aalink, .instancename, .title, .name, h3, h4, strong, b')
-      ?.textContent || ""
+function stripTitlePrefix(value) {
+  return cleanText(value).replace(
+    /^(estado|apertura|apretura|cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|pr[oó]xima|pendiente|disponible\s+desde|inicio)\s*:?\s*/i,
+    ""
   );
+}
 
-  if (preferred && preferred.length <= 120 && !isGenericSectionLabel(preferred)) {
+function isDateLikeText(value) {
+  const text = cleanText(value);
+
+  return /^(lunes|martes|mi[eé]rcoles|miercoles|jueves|viernes|s[aá]bado|sabado|domingo),?\s+\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{2,4}(?:,?\s+\d{1,2}:\d{2})?$/i.test(text) ||
+    /^\d{1,2}\s+de\s+[a-záéíóú]+\s+de\s+\d{2,4}(?:,?\s+\d{1,2}:\d{2})?$/i.test(text) ||
+    /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\s+\d{1,2}:\d{2})?$/.test(text);
+}
+
+function resolveActivityTitle(element, subject = "", pageSubject = "") {
+  let current = element;
+  let depth = 0;
+
+  while (current && depth < 5) {
+    const title = extractTitle(current, [subject, pageSubject]);
+    if (title) {
+      return title;
+    }
+
+    current = current.parentElement;
+    depth += 1;
+  }
+
+  return "";
+}
+
+function extractTitle(element, blockedValues = []) {
+  const preferredCandidates = [...element.querySelectorAll('a, .aalink, .instancename, .title, .name, h3, h4, strong, b')]
+    .map((node) => stripTitlePrefix(node.textContent || ""))
+    .filter(Boolean);
+
+  const preferred = preferredCandidates.find((candidate) => isValidTitleCandidate(candidate, blockedValues));
+  if (preferred) {
     return preferred;
   }
 
   const lines = (element.innerText || "")
     .split(/\n+/)
-    .map(cleanText)
+    .map((line) => stripTitlePrefix(line))
     .filter(Boolean);
 
-  return (
-    lines.find(
-      (line) =>
-        line.length > 4 &&
-        line.length <= 120 &&
-        !isGenericSectionLabel(line) &&
-        !/(estado|fecha|apertura|cierre|vence|pr[oó]xima|pendiente|disponible\s+desde)/i.test(line) &&
-        !/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.test(line)
-    ) || ""
+  return lines.find((line) => isValidTitleCandidate(line, blockedValues)) || "";
+}
+
+function isValidTitleCandidate(value, blockedValues = []) {
+  const text = stripTitlePrefix(value);
+  const blocked = blockedValues.map((item) => normalizeText(item)).filter(Boolean);
+
+  return Boolean(
+    text &&
+      text.length > 4 &&
+      text.length <= 120 &&
+      !blocked.includes(normalizeText(text)) &&
+      !isGenericSectionLabel(text) &&
+      !/^(estado|apertura|apretura|cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|pr[oó]xima|pendiente|disponible\s+desde|inicio)\s*:?$/i.test(text) &&
+      !isDateLikeText(text) &&
+      !/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.test(text)
   );
 }
 
@@ -196,6 +243,12 @@ function isGenericSectionLabel(text) {
   );
 }
 
+function isProgramLabel(value) {
+  return /^(?:\(?\d+\)?\s*)?(tecnicatura|licenciatura|ingenier[ií]a|profesorado|maestr[ií]a|doctorado|especializaci[oó]n|carrera|facultad|universidad|campus|educaci[oó]n\s+a\s+distancia|modalidad\s+(?:virtual|presencial|mixta)|a\s+distancia)\b/i.test(
+    cleanText(value)
+  );
+}
+
 function splitContextCandidate(value) {
   return String(value || "")
     .split(/\s*[>|»|/]\s*|\s+-\s+/g)
@@ -206,23 +259,32 @@ function splitContextCandidate(value) {
 function cleanSubjectCandidate(value) {
   return cleanText(value)
     .replace(/^(mis cursos|campus|inicio)\s*:?\s*/i, "")
+    .replace(/^(materia|curso|asignatura|c[áa]tedra)\s*:?\s*/i, "")
+    .replace(/^((?:1|2|3|4)(?:er|do)?\s*(?:bim\.?|bimestre|cuatrimestre|trimestre)|primer\s+bimestre|segundo\s+bimestre)\s*[:.-]?\s*/i, "")
+    .replace(/\b(?:educaci[oó]n\s+a\s+distancia|modalidad\s+(?:virtual|presencial|mixta)|a\s+distancia|virtual|presencial)\b/gi, "")
     .replace(/\b(?:unidad|u)\s*\d+\b.*$/i, "")
     .replace(/\bactividades?\b.*$/i, "")
     .replace(/\b(obligatorias?|optativas?)\b.*$/i, "")
+    .replace(/\b20\d{2}\b/g, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
 function getPageContextCandidates() {
-  const candidateSelectors = [
-    document.title,
+  const breadcrumbTexts = [...document.querySelectorAll('.breadcrumb li, .breadcrumb-item, nav[aria-label="breadcrumb"] li')]
+    .map((item) => item.textContent)
+    .filter(Boolean);
+
+  const headingTexts = [
     document.querySelector('.page-header-headings h1')?.textContent,
     document.querySelector('.page-title')?.textContent,
     document.querySelector('h1')?.textContent,
-    document.querySelector('.breadcrumb li:last-child')?.textContent,
-    document.querySelector('.breadcrumb li:nth-last-child(2)')?.textContent,
-    document.querySelector('.breadcrumb li:nth-last-child(3)')?.textContent,
+    document.querySelector('h2')?.textContent,
     document.querySelector('[data-region="course-content"] .sectionname')?.textContent,
+    document.querySelector('.breadcrumb-button .breadcrumb-text')?.textContent,
   ];
+
+  const candidateSelectors = [document.title, ...headingTexts, ...breadcrumbTexts];
 
   return candidateSelectors
     .flatMap(splitContextCandidate)
@@ -232,25 +294,36 @@ function getPageContextCandidates() {
 }
 
 function isGenericPageLabel(value) {
-  const normalizedValue = normalizeText(value || "");
+  const cleanedValue = cleanText(value);
+  const normalizedValue = normalizeText(cleanedValue || "");
   return (
     !normalizedValue ||
+    /^\d{4}$/.test(cleanedValue) ||
+    isProgramLabel(cleanedValue) ||
     GENERIC_PAGE_LABELS.includes(normalizedValue) ||
-    /^(unidad|u)\s*\d+$/i.test(cleanText(value))
+    /^(unidad|u)\s*\d+$/i.test(cleanedValue) ||
+    /^((?:1|2|3|4)(?:er|do)?\s*(?:bim\.?|bimestre|cuatrimestre|trimestre)|primer\s+bimestre|segundo\s+bimestre)$/i.test(cleanedValue) ||
+    isDateLikeText(cleanedValue)
   );
 }
 
-function extractPageSubject() {
-  const candidates = getPageContextCandidates();
-
-  for (const candidate of candidates) {
-    const detected = detectSubjectFromText(candidate);
-    if (detected && !isGenericPageLabel(detected)) {
-      return detected;
-    }
+function scoreSubjectCandidate(value) {
+  const text = cleanSubjectCandidate(value);
+  if (!text || isGenericPageLabel(text) || !/[a-záéíóúñ]/i.test(text)) {
+    return -1;
   }
 
-  return "";
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  return text.length + wordCount * 10;
+}
+
+function extractPageSubject() {
+  const candidates = getPageContextCandidates()
+    .map((candidate) => detectSubjectFromText(candidate))
+    .filter(Boolean)
+    .sort((left, right) => scoreSubjectCandidate(right) - scoreSubjectCandidate(left));
+
+  return candidates[0] || "";
 }
 
 function getPageContextText() {
@@ -259,7 +332,12 @@ function getPageContextText() {
 
 function detectSubjectFromText(value) {
   const cleanedValue = cleanSubjectCandidate(value);
-  if (!cleanedValue || isGenericPageLabel(cleanedValue)) {
+  if (
+    !cleanedValue ||
+    isGenericPageLabel(cleanedValue) ||
+    isProgramLabel(cleanedValue) ||
+    !/[a-záéíóúñ]/i.test(cleanedValue)
+  ) {
     return "";
   }
 
@@ -268,34 +346,51 @@ function detectSubjectFromText(value) {
   );
 
   if (labelledMatch?.[1]) {
-    return cleanSubjectCandidate(labelledMatch[1]);
+    const labelledValue = cleanSubjectCandidate(labelledMatch[1]);
+    if (
+      !isGenericPageLabel(labelledValue) &&
+      !isProgramLabel(labelledValue) &&
+      /[a-záéíóúñ]/i.test(labelledValue)
+    ) {
+      return labelledValue;
+    }
   }
 
   return cleanedValue.length <= 80 ? cleanedValue : "";
 }
 
 function extractSubject(element, text, pageSubject = "") {
-  if (pageSubject) {
-    return pageSubject;
-  }
-
-  const matchedSubject = detectSubjectFromText(text);
-
-  if (matchedSubject) {
-    return matchedSubject;
-  }
-
   const lines = (element.innerText || "")
     .split(/\n+/)
     .map(cleanText)
     .filter(Boolean);
+
+  const lineCandidate = lines
+    .map((line) => detectSubjectFromText(line))
+    .find((candidate) => candidate && !isProgramLabel(candidate));
+
+  if (lineCandidate) {
+    return lineCandidate;
+  }
+
+  const matchedSubject = detectSubjectFromText(text);
+  if (matchedSubject && !isProgramLabel(matchedSubject)) {
+    return matchedSubject;
+  }
+
+  if (pageSubject && !isProgramLabel(pageSubject)) {
+    return pageSubject;
+  }
 
   const labeledLine = lines.find((line) => /(materia|curso|asignatura|c[aá]tedra)/i.test(line));
   if (labeledLine) {
     const cleanedLabel = labeledLine
       .replace(/.*?(materia|curso|asignatura|c[aá]tedra)\s*:?\s*/i, "")
       .trim();
-    return detectSubjectFromText(cleanedLabel) || cleanedLabel;
+    const detected = detectSubjectFromText(cleanedLabel);
+    if (detected && !isProgramLabel(detected)) {
+      return detected;
+    }
   }
 
   return "Sin materia asignada";
