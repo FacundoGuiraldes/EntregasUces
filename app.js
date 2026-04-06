@@ -27,6 +27,10 @@ const loadExampleBtn = document.getElementById("loadExampleBtn");
 const clearAllBtn = document.getElementById("clearAllBtn");
 const emptyStateTemplate = document.getElementById("emptyStateTemplate");
 const importStatus = document.getElementById("importStatus");
+const subjectsMenuBtn = document.getElementById("subjectsMenuBtn");
+const remindersMenuBtn = document.getElementById("remindersMenuBtn");
+const subjectsDropdown = document.getElementById("subjectsDropdown");
+const remindersDropdown = document.getElementById("remindersDropdown");
 
 init();
 
@@ -55,14 +59,44 @@ function bindEvents() {
   enableNotificationsBtn.addEventListener("click", requestNotificationPermission);
   loadExampleBtn.addEventListener("click", loadExampleData);
   clearAllBtn.addEventListener("click", clearAll);
+  subjectsMenuBtn?.addEventListener("click", () => toggleDropdown("subjects"));
+  remindersMenuBtn?.addEventListener("click", () => toggleDropdown("reminders"));
 
   document.querySelectorAll(".filter-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      state.filter = button.dataset.filter;
-      document.querySelectorAll(".filter-btn").forEach((btn) => btn.classList.remove("active"));
-      button.classList.add("active");
-      renderAssignments();
+      applyFilter(button.dataset.filter || "all");
     });
+  });
+
+  subjectsDropdown?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-subject-value]");
+    if (!button) {
+      return;
+    }
+
+    subjectSelect.value = button.dataset.subjectValue || SUBJECTS[0];
+    document.getElementById("title")?.focus();
+    closeDropdowns();
+  });
+
+  remindersDropdown?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-reminder-id]");
+    if (!button) {
+      return;
+    }
+
+    const reminderId = button.dataset.reminderId;
+    applyFilter("upcoming");
+    closeDropdowns();
+
+    const target = list.querySelector(`[data-assignment-id="${reminderId}"]`);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".menu-dropdown")) {
+      closeDropdowns();
+    }
   });
 
   list.addEventListener("click", (event) => {
@@ -245,6 +279,39 @@ function normalizeText(value) {
     .trim();
 }
 
+function toggleDropdown(type) {
+  const isSubjects = type === "subjects";
+  const targetMenu = isSubjects ? subjectsDropdown : remindersDropdown;
+  const targetButton = isSubjects ? subjectsMenuBtn : remindersMenuBtn;
+
+  if (!targetMenu || !targetButton) {
+    return;
+  }
+
+  const shouldOpen = !targetMenu.classList.contains("open");
+  closeDropdowns();
+
+  if (shouldOpen) {
+    targetMenu.classList.add("open");
+    targetButton.setAttribute("aria-expanded", "true");
+  }
+}
+
+function closeDropdowns() {
+  subjectsDropdown?.classList.remove("open");
+  remindersDropdown?.classList.remove("open");
+  subjectsMenuBtn?.setAttribute("aria-expanded", "false");
+  remindersMenuBtn?.setAttribute("aria-expanded", "false");
+}
+
+function applyFilter(filter) {
+  state.filter = filter;
+  document.querySelectorAll(".filter-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.filter === filter);
+  });
+  renderAssignments();
+}
+
 function handleSubmit(event) {
   event.preventDefault();
 
@@ -278,7 +345,55 @@ function handleSubmit(event) {
 
 function render() {
   renderStats();
+  renderHeaderMenus();
   renderAssignments();
+}
+
+function renderHeaderMenus() {
+  if (subjectsDropdown) {
+    subjectsDropdown.innerHTML = SUBJECTS.map(
+      (subject) => `
+        <button class="dropdown-item" type="button" data-subject-value="${escapeHtml(subject)}">
+          ${escapeHtml(subject)}
+        </button>
+      `
+    ).join("");
+  }
+
+  const upcomingAssignments = state.assignments
+    .filter((item) => !item.completed && new Date(item.dueAt) >= new Date())
+    .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))
+    .slice(0, 5);
+
+  if (remindersMenuBtn) {
+    remindersMenuBtn.textContent = `Recordatorios${upcomingAssignments.length ? ` (${upcomingAssignments.length})` : ""} ▾`;
+  }
+
+  if (!remindersDropdown) {
+    return;
+  }
+
+  if (!upcomingAssignments.length) {
+    remindersDropdown.innerHTML = `
+      <div class="dropdown-empty">
+        No hay entregas próximas por ahora.
+      </div>
+    `;
+    return;
+  }
+
+  remindersDropdown.innerHTML = upcomingAssignments
+    .map((item) => {
+      const status = getStatus(item);
+      return `
+        <button class="dropdown-item reminder-dropdown-item" type="button" data-reminder-id="${item.id}">
+          <strong>${escapeHtml(item.title)}</strong>
+          <span>${escapeHtml(item.subject)}</span>
+          <small>${formatDue(item.dueAt)} · ${status.relative}</small>
+        </button>
+      `;
+    })
+    .join("");
 }
 
 function renderStats() {
@@ -314,7 +429,7 @@ function renderAssignments() {
     .map((item) => {
       const status = getStatus(item);
       return `
-        <article class="assignment-item ${item.completed ? "completed" : ""}">
+        <article class="assignment-item ${item.completed ? "completed" : ""}" data-assignment-id="${item.id}">
           <div class="assignment-top">
             <div>
               <h3>${escapeHtml(item.title)}</h3>

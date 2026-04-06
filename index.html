@@ -18,11 +18,40 @@
             <strong>Panel de próximas entregas</strong>
           </div>
         </div>
-        <div class="header-links" aria-label="Accesos rápidos">
-          <span>Campus</span>
-          <span>Materias</span>
-          <span>Recordatorios</span>
-        </div>
+        <nav class="header-links" aria-label="Accesos rápidos">
+          <a
+            class="header-link"
+            href="https://campusvirtual.uces.edu.ar/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Campus
+          </a>
+
+          <div class="menu-dropdown">
+            <button
+              id="subjectsMenuBtn"
+              class="menu-toggle"
+              type="button"
+              aria-expanded="false"
+            >
+              Materias ▾
+            </button>
+            <div id="subjectsDropdown" class="dropdown-menu" role="menu"></div>
+          </div>
+
+          <div class="menu-dropdown">
+            <button
+              id="remindersMenuBtn"
+              class="menu-toggle"
+              type="button"
+              aria-expanded="false"
+            >
+              Recordatorios ▾
+            </button>
+            <div id="remindersDropdown" class="dropdown-menu" role="menu"></div>
+          </div>
+        </nav>
       </div>
     </header>
 

@@ -70,15 +70,73 @@ body {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
-.header-links span {
+.header-link,
+.menu-toggle {
   border: 1px solid var(--border);
   background: #f4fbf8;
   color: var(--primary-dark);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.menu-toggle {
+  cursor: pointer;
+}
+
+.menu-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 280px;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  z-index: 30;
+}
+
+.dropdown-menu.open {
+  display: grid;
+  gap: 6px;
+}
+
+.dropdown-item {
+  width: 100%;
+  text-align: left;
+  background: #f8fffc;
+  color: var(--text);
+  border: 1px solid #e1efe9;
+}
+
+.reminder-dropdown-item {
+  display: grid;
+  gap: 2px;
+}
+
+.reminder-dropdown-item strong {
+  color: var(--primary-dark);
+}
+
+.reminder-dropdown-item span,
+.reminder-dropdown-item small,
+.dropdown-empty {
+  color: var(--muted);
+}
+
+.dropdown-empty {
+  padding: 10px;
+  font-size: 0.92rem;
 }
 
 .hero {
