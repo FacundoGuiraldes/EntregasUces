@@ -50,6 +50,8 @@ Dentro de la carpeta `uces-campus-extension/` quedó una extensión para Chrome/
 5. Abrí tu Campus UCES en `ACTIVIDADES` y usá la extensión
 
 > Si abrís la app con `file:///...`, habilitá también el acceso de la extensión a URLs locales.
+>
+> Después de cambiar el ícono de la extensión, usá **Recargar** en `chrome://extensions/` o `edge://extensions/` para verlo en la barra de herramientas.
 
 ## Archivos
 
