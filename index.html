@@ -3,21 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#002b5b" />
     <title>UCES · Próximas Entregas</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <div class="brand">
+          <div class="brand-mark">UCES</div>
+          <div>
+            <p class="brand-kicker">Universidad · organización académica</p>
+            <strong>Panel de próximas entregas</strong>
+          </div>
+        </div>
+        <div class="header-links" aria-label="Accesos rápidos">
+          <span>Campus</span>
+          <span>Materias</span>
+          <span>Recordatorios</span>
+        </div>
+      </div>
+    </header>
+
     <main class="container">
       <section class="hero">
-        <div>
-          <p class="eyebrow">Organizador académico</p>
-          <h1>UCES · Próximas Entregas</h1>
+        <div class="hero-copy">
+          <p class="eyebrow">Estilo visual inspirado en UCES</p>
+          <h1>Gestioná tus entregas de la facultad en un solo lugar</h1>
           <p class="subtitle">
-            Registrá tus actividades y recibí avisos de las fechas más cercanas.
+            Organizá tus actividades de Arquitectura en Computadoras, Integración,
+            Base de Datos, Programación y Diseño con una estética institucional,
+            clara y profesional.
           </p>
         </div>
-        <div class="hero-badge">📚 6 materias cargadas</div>
+        <div class="hero-badge">
+          <span class="badge-label">Materias activas</span>
+          <strong>6</strong>
+        </div>
       </section>
 
       <section class="stats" aria-label="Resumen">
@@ -105,6 +127,13 @@
         </section>
       </div>
     </main>
+
+    <footer class="site-footer">
+      <div class="container footer-inner">
+        <p><strong>UCES · Agenda personal</strong></p>
+        <p>Diseño académico inspirado en la identidad institucional de la universidad.</p>
+      </div>
+    </footer>
 
     <template id="emptyStateTemplate">
       <div class="empty-state">
