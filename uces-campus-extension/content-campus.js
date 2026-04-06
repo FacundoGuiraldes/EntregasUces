@@ -60,6 +60,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 function extractUpcomingActivities() {
   const pageSnapshot = cleanText(`${document.title}\n${document.body?.innerText || ""}`);
+  const pageSubject = extractPageSubject();
 
   const selectors = [
     '[class*="activity"]',
@@ -94,7 +95,7 @@ function extractUpcomingActivities() {
   );
 
   const activities = leafElements
-    .map((element) => buildActivityFromElement(element, now, seen))
+    .map((element) => buildActivityFromElement(element, now, seen, pageSubject))
     .filter(Boolean)
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
 
@@ -107,7 +108,7 @@ function extractUpcomingActivities() {
   return activities.slice(0, 50);
 }
 
-function buildActivityFromElement(element, now, seen) {
+function buildActivityFromElement(element, now, seen, pageSubject = "") {
   const text = cleanText(element.innerText || "");
 
   if (text.length < 20 || text.length > 800) {
@@ -133,7 +134,7 @@ function buildActivityFromElement(element, now, seen) {
     return null;
   }
 
-  const subject = extractSubject(element, text);
+  const subject = extractSubject(element, text, pageSubject);
   const notes = (element.innerText || "")
     .split(/\n+/)
     .map(cleanText)
@@ -148,6 +149,7 @@ function buildActivityFromElement(element, now, seen) {
     dueAt: formatLocalIso(dueAt),
     status: "Próxima",
     notes,
+    sourceSubject: pageSubject || subject,
     context: getPageContextText(),
     url: element.querySelector('a[href]')?.href || location.href,
   };
@@ -215,16 +217,36 @@ function isGenericSectionLabel(text) {
   );
 }
 
-function getPageContextText() {
-  const pageNodes = [
-    ...document.querySelectorAll(
-      'h1, h2, .page-header-headings h1, .page-title, .breadcrumb li, .breadcrumb a, nav a.active, .course-header-nav a'
-    ),
+function getPageContextCandidates() {
+  const candidateSelectors = [
+    document.title,
+    document.querySelector('.page-header-headings h1')?.textContent,
+    document.querySelector('.page-title')?.textContent,
+    document.querySelector('h1')?.textContent,
+    document.querySelector('.breadcrumb li:last-child')?.textContent,
+    document.querySelector('.breadcrumb li:nth-last-child(2)')?.textContent,
+    document.querySelector('.breadcrumb li:nth-last-child(3)')?.textContent,
+    document.querySelector('[data-region="course-content"] .sectionname')?.textContent,
   ];
 
-  return cleanText(
-    [document.title, ...pageNodes.map((node) => node.textContent || "")].join(" ")
-  );
+  return candidateSelectors.map(cleanText).filter(Boolean);
+}
+
+function extractPageSubject() {
+  const candidates = getPageContextCandidates();
+
+  for (const candidate of candidates) {
+    const detected = detectSubjectFromText(candidate);
+    if (detected) {
+      return detected;
+    }
+  }
+
+  return "";
+}
+
+function getPageContextText() {
+  return cleanText(getPageContextCandidates().join(" "));
 }
 
 function detectSubjectFromText(value) {
@@ -244,9 +266,12 @@ function detectSubjectFromText(value) {
   return bestMatch?.score ? bestMatch.name : "";
 }
 
-function extractSubject(element, text) {
-  const pageContext = getPageContextText();
-  const matchedSubject = detectSubjectFromText(`${pageContext} ${text}`);
+function extractSubject(element, text, pageSubject = "") {
+  if (pageSubject) {
+    return pageSubject;
+  }
+
+  const matchedSubject = detectSubjectFromText(text);
 
   if (matchedSubject) {
     return matchedSubject;

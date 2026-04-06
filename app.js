@@ -213,6 +213,7 @@ function normalizeImportedAssignment(item) {
   const rawText = [
     item?.title,
     item?.subject,
+    item?.sourceSubject,
     item?.course,
     item?.materia,
     item?.notes,
@@ -223,7 +224,8 @@ function normalizeImportedAssignment(item) {
   const title = String(item?.title || item?.name || item?.activity || "Actividad Campus")
     .trim();
   const subject = inferSubject(
-    item?.subject || item?.course || item?.materia || item?.context || rawText
+    item?.subject || item?.sourceSubject || item?.course || item?.materia || "",
+    item?.context || rawText
   );
   const dueAt = normalizeDueAt(
     item?.dueAt || item?.dueDate || item?.deadline || item?.fecha || item?.date
@@ -251,6 +253,7 @@ function normalizeImportedAssignment(item) {
     subject,
     dueAt,
     notes,
+    sourceContext: item?.context || "",
     completed: false,
     createdAt: new Date().toISOString(),
   };
@@ -291,6 +294,21 @@ function normalizeDueAt(value) {
   return `${fullYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+function resolveExactSubject(value) {
+  const normalizedValue = normalizeText(value || "");
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const exactMatch = SUBJECT_METADATA.find(
+    (entry) =>
+      normalizedValue === normalizeText(entry.name) ||
+      entry.aliases.some((alias) => normalizedValue === normalizeText(alias))
+  );
+
+  return exactMatch?.name || "";
+}
+
 function detectSubjectFromText(value) {
   const normalizedValue = normalizeText(value || "");
   if (!normalizedValue) {
@@ -308,22 +326,30 @@ function detectSubjectFromText(value) {
   return bestMatch?.score ? bestMatch.name : "";
 }
 
-function inferSubject(value) {
-  const detectedSubject = detectSubjectFromText(value);
+function inferSubject(value, fallbackContext = "") {
+  const exactSubject = resolveExactSubject(value);
+  if (exactSubject) {
+    return exactSubject;
+  }
+
+  const detectedSubject = detectSubjectFromText(`${value || ""} ${fallbackContext || ""}`);
   if (detectedSubject) {
     return detectedSubject;
   }
 
-  const fallback = String(value || "").trim();
+  const fallback = String(value || fallbackContext || "").trim();
   return fallback && fallback.length <= 60 ? fallback : "Campus UCES";
+}
+
+function getAssignmentSubject(item) {
+  return inferSubject(item?.subject || "", `${item?.sourceContext || ""} ${item?.title || ""} ${item?.notes || ""}`);
 }
 
 function isDuplicateAssignment(candidate) {
   return state.assignments.some(
     (item) =>
       normalizeText(item.title) === normalizeText(candidate.title) &&
-      normalizeText(inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`)) ===
-        normalizeText(inferSubject(`${candidate.subject} ${candidate.title} ${candidate.notes || ""}`)) &&
+      normalizeText(getAssignmentSubject(item)) === normalizeText(getAssignmentSubject(candidate)) &&
       item.dueAt === candidate.dueAt
   );
 }
@@ -412,7 +438,7 @@ function renderHeaderMenus() {
     subjectsDropdown.innerHTML = SUBJECTS.map((subject) => {
       const anchorId = createSubjectAnchorId(subject);
       const totalBySubject = state.assignments.filter(
-        (item) => inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`) === subject
+        (item) => getAssignmentSubject(item) === subject
       ).length;
 
       return `
@@ -457,7 +483,7 @@ function renderHeaderMenus() {
       return `
         <button class="dropdown-item reminder-dropdown-item" type="button" data-reminder-id="${item.id}">
           <strong>${escapeHtml(item.title)}</strong>
-          <span>${escapeHtml(inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`))}</span>
+          <span>${escapeHtml(getAssignmentSubject(item))}</span>
           <small>${formatDue(item.dueAt)} · ${status.relative}</small>
         </button>
       `;
@@ -476,7 +502,7 @@ function renderSubjectSections() {
 
   subjectSections.innerHTML = SUBJECTS.map((subject) => {
     const items = state.assignments
-      .filter((item) => inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`) === subject)
+      .filter((item) => getAssignmentSubject(item) === subject)
       .sort((a, b) => {
         if (a.completed !== b.completed) {
           return a.completed ? 1 : -1;
@@ -511,7 +537,7 @@ function renderSubjectSections() {
                         <div class="assignment-top">
                           <div>
                             <h4>${escapeHtml(item.title)}</h4>
-                            <p class="subject">${escapeHtml(inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`))}</p>
+                            <p class="subject">${escapeHtml(getAssignmentSubject(item))}</p>
                           </div>
                           <span class="badge ${status.type}">${status.label}</span>
                         </div>
@@ -563,7 +589,7 @@ function renderAssignments() {
   list.innerHTML = sorted
     .map((item) => {
       const status = getStatus(item);
-      const displaySubject = inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`);
+      const displaySubject = getAssignmentSubject(item);
       return `
         <article class="assignment-item ${item.completed ? "completed" : ""}" data-assignment-id="${item.id}">
           <div class="assignment-top">
@@ -728,7 +754,7 @@ function loadAssignments() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((item) => ({
       ...item,
-      subject: inferSubject(`${item.subject || ""} ${item.title || ""} ${item.notes || ""}`),
+      subject: inferSubject(item.subject || "", `${item.sourceContext || ""} ${item.title || ""} ${item.notes || ""}`),
     }));
   } catch {
     return [];
