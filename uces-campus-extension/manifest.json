@@ -11,9 +11,21 @@
     "https://facundoguiraldes.github.io/*",
     "file:///*"
   ],
+  "icons": {
+    "16": "icon-actividades.svg",
+    "32": "icon-actividades.svg",
+    "48": "icon-actividades.svg",
+    "128": "icon-actividades.svg"
+  },
   "action": {
     "default_title": "UCES Importador",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon-actividades.svg",
+      "32": "icon-actividades.svg",
+      "48": "icon-actividades.svg",
+      "128": "icon-actividades.svg"
+    }
   },
   "content_scripts": [
     {

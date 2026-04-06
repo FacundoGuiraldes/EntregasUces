@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#007a5a" />
     <title>UCES · Próximas Entregas</title>
+    <link rel="icon" type="image/svg+xml" href="assets/uces-actividades-badge.svg" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -71,12 +72,19 @@
       </section>
 
       <section class="panel import-panel">
-        <div>
-          <h2>🔄 Importar desde Campus UCES</h2>
-          <p id="importStatus">
-            Abrí la sección <strong>ACTIVIDADES</strong> en Campus UCES y usá la extensión
-            `UCES Importador` para cargar únicamente las actividades próximas con fecha límite visible.
-          </p>
+        <div class="import-panel-top">
+          <img
+            src="assets/uces-actividades-badge.svg"
+            alt="UCES Extensión Actividades"
+            class="import-badge"
+          />
+          <div>
+            <h2>🔄 Importar desde Campus UCES</h2>
+            <p id="importStatus">
+              Abrí la sección <strong>ACTIVIDADES</strong> en Campus UCES y usá la extensión
+              `UCES Importador` para cargar únicamente las actividades próximas con fecha límite visible.
+            </p>
+          </div>
         </div>
         <ol class="import-steps">
           <li>Ingresá a tu Campus UCES y abrí la vista <strong>ACTIVIDADES</strong>.</li>

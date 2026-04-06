@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">UCES Extensión Actividades</title>
+  <desc id="desc">Insignia circular verde para UCES Extensión Actividades.</desc>
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#007a5a" />
+      <stop offset="100%" stop-color="#005c44" />
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="234" fill="#ffffff" stroke="url(#g)" stroke-width="16" />
+  <path d="M102 130h308a18 18 0 0 1 18 18v124H84V148a18 18 0 0 1 18-18z" fill="url(#g)" opacity="0.96" />
+  <path d="M132 120c22-28 54-46 124-46s102 18 124 46" fill="none" stroke="#007a5a" stroke-width="12" stroke-linecap="round" />
+  <path d="M166 96l18-12 16 14 8-22 24 1 6 23 21-13 18 14 16-15 20 11" fill="none" stroke="#007a5a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />
+  <circle cx="160" cy="142" r="7" fill="#ffffff" />
+  <circle cx="352" cy="142" r="7" fill="#ffffff" />
+  <circle cx="392" cy="166" r="8" fill="#ffffff" />
+  <path d="M330 170c16-18 36-22 58-10" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <path d="M360 142c-22-16-48-23-82-23-41 0-77 10-108 31" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.9" />
+  <path d="M258 150l-14 41-39 9 31 18-10 41 32-24 32 24-10-41 31-18-39-9z" fill="#ffffff" opacity="0.92" />
+  <text x="256" y="237" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="700" letter-spacing="-4" fill="#ffffff">UCES</text>
+  <rect x="102" y="292" width="308" height="114" rx="16" fill="#ffffff" />
+  <text x="256" y="340" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="800" fill="#007a5a">EXTENSIÓN</text>
+  <text x="256" y="376" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="800" fill="#007a5a">ACTIVIDADES</text>
+  <path d="M168 418h176c-18 19-55 31-88 31s-70-12-88-31z" fill="url(#g)" />
+</svg>

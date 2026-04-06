@@ -211,6 +211,19 @@ h1 {
   background: linear-gradient(90deg, rgba(0, 122, 90, 0.03) 0%, rgba(255, 255, 255, 1) 100%);
 }
 
+.import-panel-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.import-badge {
+  width: 92px;
+  height: 92px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .import-panel p {
   margin-bottom: 0;
 }
@@ -487,7 +500,8 @@ button:hover {
   .list-header,
   .split,
   .header-inner,
-  .footer-inner {
+  .footer-inner,
+  .import-panel-top {
     flex-direction: column;
   }
 
