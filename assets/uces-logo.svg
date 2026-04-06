@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 340" role="img" aria-labelledby="title desc">
+  <title id="title">Logo UCES</title>
+  <desc id="desc">Logotipo verde y blanco inspirado en el emblema de UCES.</desc>
+  <rect width="700" height="340" fill="#ffffff" />
+  <path d="M20 42C170 18 330 18 680 42L680 56C330 44 170 44 20 56Z" fill="#007a5a" />
+  <path d="M20 284C170 308 330 308 680 284L680 298C330 311 170 311 20 298Z" fill="#007a5a" />
+  <text
+    x="350"
+    y="220"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="148"
+    font-weight="700"
+    fill="#007a5a"
+  >
+    UCES
+  </text>
+</svg>

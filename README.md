@@ -1,6 +1,6 @@
 # UCES · Próximas Entregas
 
-App web simple con diseño visual inspirado en UCES para llevar el control de entregas de:
+App web simple con diseño visual inspirado en la identidad verde y blanca de UCES para llevar el control de entregas de:
 
 - `Arquitectura en Computadoras`
 - `Integración Tecnológico Académica`

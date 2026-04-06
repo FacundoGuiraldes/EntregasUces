@@ -1,16 +1,16 @@
 :root {
-  --bg: #eef2f7;
+  --bg: #f4faf7;
   --panel: #ffffff;
-  --primary: #002b5b;
-  --primary-dark: #001a39;
-  --accent: #c7a33d;
-  --text: #12243d;
-  --muted: #5b6880;
-  --border: #d8e0eb;
+  --primary: #007a5a;
+  --primary-dark: #005c44;
+  --accent: #dff3ec;
+  --text: #16322b;
+  --muted: #5a6f68;
+  --border: #d7e8e1;
   --success: #116149;
   --warning: #9a6a00;
   --danger: #b42318;
-  --shadow: 0 18px 40px rgba(0, 43, 91, 0.08);
+  --shadow: 0 18px 40px rgba(0, 122, 90, 0.08);
 }
 
 * {
@@ -20,7 +20,7 @@
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(180deg, #e8eef6 0%, #f7f9fc 48%, var(--bg) 100%);
+  background: linear-gradient(180deg, #f8fffc 0%, #f2faf6 48%, var(--bg) 100%);
   color: var(--text);
 }
 
@@ -31,10 +31,11 @@ body {
 }
 
 .site-header {
-  background: linear-gradient(90deg, var(--primary-dark) 0%, var(--primary) 100%);
-  border-top: 4px solid var(--accent);
-  color: #ffffff;
-  box-shadow: 0 12px 30px rgba(0, 26, 57, 0.18);
+  background: #ffffff;
+  border-top: 5px solid var(--primary);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: 0 10px 24px rgba(0, 122, 90, 0.08);
 }
 
 .header-inner {
@@ -50,13 +51,10 @@ body {
   gap: 12px;
 }
 
-.brand-mark {
-  background: #ffffff;
-  color: var(--primary);
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  border-radius: 12px;
-  padding: 10px 12px;
+.brand-logo {
+  width: 120px;
+  height: auto;
+  display: block;
 }
 
 .brand-kicker {
@@ -64,7 +62,8 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  opacity: 0.85;
+  color: var(--primary);
+  opacity: 0.9;
 }
 
 .header-links {
@@ -74,8 +73,9 @@ body {
 }
 
 .header-links span {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  background: #f4fbf8;
+  color: var(--primary-dark);
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 0.9rem;
@@ -88,8 +88,8 @@ body {
   gap: 20px;
   margin-bottom: 18px;
   padding: 24px;
-  background: linear-gradient(135deg, rgba(0, 43, 91, 0.06) 0%, rgba(199, 163, 61, 0.12) 100%);
-  border: 1px solid rgba(0, 43, 91, 0.08);
+  background: linear-gradient(135deg, rgba(0, 122, 90, 0.06) 0%, rgba(223, 243, 236, 0.9) 100%);
+  border: 1px solid rgba(0, 122, 90, 0.12);
   border-radius: 24px;
   box-shadow: var(--shadow);
 }
@@ -120,15 +120,16 @@ h1 {
 }
 
 .hero-badge {
-  min-width: 180px;
+  min-width: 220px;
   align-self: center;
-  background: linear-gradient(180deg, var(--primary) 0%, #0b447a 100%);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--primary-dark);
   padding: 18px;
   border-radius: 20px;
   font-weight: 700;
   text-align: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .badge-label {
@@ -136,13 +137,21 @@ h1 {
   font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #d7e6ff;
+  color: var(--muted);
 }
 
 .hero-badge strong {
   display: block;
   font-size: 2.4rem;
   margin-top: 4px;
+}
+
+.hero-logo {
+  width: 120px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto 10px;
 }
 
 .stats {
@@ -173,7 +182,7 @@ h1 {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, #48b48d 100%);
 }
 
 .stat-card span {
@@ -194,7 +203,7 @@ h1 {
   gap: 16px;
   padding: 18px;
   margin-bottom: 18px;
-  background: linear-gradient(90deg, rgba(0, 43, 91, 0.03) 0%, rgba(199, 163, 61, 0.14) 100%);
+  background: linear-gradient(90deg, rgba(0, 122, 90, 0.04) 0%, rgba(223, 243, 236, 0.9) 100%);
 }
 
 .grid {
@@ -255,7 +264,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(0, 43, 91, 0.1);
+  box-shadow: 0 0 0 4px rgba(0, 122, 90, 0.12);
 }
 
 textarea {
@@ -276,7 +285,7 @@ button:hover {
 }
 
 .primary-btn {
-  background: linear-gradient(90deg, var(--primary) 0%, #0b447a 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, #00966f 100%);
   color: white;
 }
 
@@ -287,9 +296,9 @@ button:hover {
 .secondary-btn,
 .ghost-btn,
 .filter-btn {
-  background: #eef3f9;
+  background: #f3fbf7;
   color: var(--primary-dark);
-  border: 1px solid #d9e1ed;
+  border: 1px solid var(--border);
 }
 
 .ghost-btn {
@@ -332,10 +341,10 @@ button:hover {
 
 .assignment-item {
   border: 1px solid var(--border);
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--primary);
   border-radius: 16px;
   padding: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f9fffc 100%);
 }
 
 .assignment-item.completed {
@@ -367,7 +376,7 @@ button:hover {
 }
 
 .badge.upcoming {
-  background: #dbe8fb;
+  background: #dff5ec;
   color: var(--primary-dark);
 }
 
@@ -393,7 +402,7 @@ button:hover {
 }
 
 .item-meta span {
-  background: #f2f6fb;
+  background: #f1faf6;
   padding: 6px 10px;
   border-radius: 999px;
 }
@@ -429,7 +438,7 @@ button:hover {
 .site-footer {
   margin-top: 24px;
   background: var(--primary-dark);
-  border-top: 4px solid var(--accent);
+  border-top: 4px solid #2cc08c;
   color: #ffffff;
 }
 
