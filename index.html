@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>UCES · Próximas Entregas</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Organizador académico</p>
+          <h1>UCES · Próximas Entregas</h1>
+          <p class="subtitle">
+            Registrá tus actividades y recibí avisos de las fechas más cercanas.
+          </p>
+        </div>
+        <div class="hero-badge">📚 6 materias cargadas</div>
+      </section>
+
+      <section class="stats" aria-label="Resumen">
+        <article class="stat-card">
+          <span>Total</span>
+          <strong id="totalCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>Próximas 7 días</span>
+          <strong id="upcomingCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>Vencidas</span>
+          <strong id="overdueCount">0</strong>
+        </article>
+      </section>
+
+      <section class="panel notifications-panel">
+        <div>
+          <h2>🔔 Avisos</h2>
+          <p id="notificationText">
+            Activá las notificaciones del navegador para recibir recordatorios mientras la app esté abierta.
+          </p>
+        </div>
+        <button id="enableNotificationsBtn" class="secondary-btn" type="button">
+          Activar notificaciones
+        </button>
+      </section>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Nueva entrega</h2>
+          <form id="assignmentForm" class="form">
+            <label>
+              Título
+              <input id="title" name="title" type="text" placeholder="Ej: TP 1" required />
+            </label>
+
+            <label>
+              Materia
+              <select id="subject" name="subject" required></select>
+            </label>
+
+            <div class="split">
+              <label>
+                Fecha de entrega
+                <input id="dueDate" name="dueDate" type="date" required />
+              </label>
+
+              <label>
+                Hora
+                <input id="dueTime" name="dueTime" type="time" value="23:59" required />
+              </label>
+            </div>
+
+            <label>
+              Nota opcional
+              <textarea id="notes" name="notes" rows="3" placeholder="Detalles importantes..."></textarea>
+            </label>
+
+            <div class="actions">
+              <button class="primary-btn" type="submit">Guardar entrega</button>
+              <button id="loadExampleBtn" class="ghost-btn" type="button">Cargar ejemplo</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="list-header">
+            <div>
+              <h2>Mis entregas</h2>
+              <p>Se guardan automáticamente en este navegador.</p>
+            </div>
+            <button id="clearAllBtn" class="danger-btn" type="button">Borrar todo</button>
+          </div>
+
+          <div class="filters" aria-label="Filtros">
+            <button class="filter-btn active" data-filter="all" type="button">Todas</button>
+            <button class="filter-btn" data-filter="upcoming" type="button">Próximas</button>
+            <button class="filter-btn" data-filter="overdue" type="button">Vencidas</button>
+            <button class="filter-btn" data-filter="completed" type="button">Completadas</button>
+          </div>
+
+          <div id="assignmentList" class="assignment-list"></div>
+        </section>
+      </div>
+    </main>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <span>🗓️</span>
+        <p>No hay entregas para mostrar todavía.</p>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
