@@ -1,10 +1,33 @@
-const SUBJECT_HINTS = [
-  "Arquitectura en Computadoras",
-  "Integración Tecnológico Académica",
-  "Base de Datos I",
-  "Programación I",
-  "Diseño de Objetos",
-  "Diseño de Interfaces",
+const SUBJECT_METADATA = [
+  {
+    name: "Arquitectura en Computadoras",
+    aliases: ["arquitectura en computadoras", "arquitectura", "computadoras"],
+  },
+  {
+    name: "Integración Tecnológico Académica",
+    aliases: [
+      "integracion tecnologico academica",
+      "integracion academica",
+      "integracion",
+      "ita",
+    ],
+  },
+  {
+    name: "Base de Datos I",
+    aliases: ["base de datos i", "base de datos", "bd1", "sql"],
+  },
+  {
+    name: "Programación I",
+    aliases: ["programacion i", "programacion", "algoritmos"],
+  },
+  {
+    name: "Diseño de Objetos",
+    aliases: ["diseno de objetos", "diseño de objetos", "objetos", "poo"],
+  },
+  {
+    name: "Diseño de Interfaces",
+    aliases: ["diseno de interfaces", "diseño de interfaces", "interfaces", "interfaz"],
+  },
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -125,6 +148,7 @@ function buildActivityFromElement(element, now, seen) {
     dueAt: formatLocalIso(dueAt),
     status: "Próxima",
     notes,
+    context: getPageContextText(),
     url: element.querySelector('a[href]')?.href || location.href,
   };
 
@@ -191,14 +215,38 @@ function isGenericSectionLabel(text) {
   );
 }
 
+function getPageContextText() {
+  const pageNodes = [
+    ...document.querySelectorAll(
+      'h1, h2, .page-header-headings h1, .page-title, .breadcrumb li, .breadcrumb a, nav a.active, .course-header-nav a'
+    ),
+  ];
+
+  return cleanText(
+    [document.title, ...pageNodes.map((node) => node.textContent || "")].join(" ")
+  );
+}
+
+function detectSubjectFromText(value) {
+  const normalizedValue = normalizeText(value || "");
+  if (!normalizedValue) {
+    return "";
+  }
+
+  const bestMatch = SUBJECT_METADATA.map((entry) => ({
+    name: entry.name,
+    score: entry.aliases.reduce((total, alias) => {
+      const normalizedAlias = normalizeText(alias);
+      return total + (normalizedValue.includes(normalizedAlias) ? normalizedAlias.length : 0);
+    }, 0),
+  })).sort((a, b) => b.score - a.score)[0];
+
+  return bestMatch?.score ? bestMatch.name : "";
+}
+
 function extractSubject(element, text) {
-  const pageHeading = cleanText(
-    `${document.title} ${document.querySelector('h1, h2, .page-header-headings h1, .page-title')?.textContent || ""}`
-  );
-  const normalizedText = normalizeText(`${pageHeading} ${text}`);
-  const matchedSubject = SUBJECT_HINTS.find((subject) =>
-    normalizedText.includes(normalizeText(subject))
-  );
+  const pageContext = getPageContextText();
+  const matchedSubject = detectSubjectFromText(`${pageContext} ${text}`);
 
   if (matchedSubject) {
     return matchedSubject;
@@ -211,7 +259,10 @@ function extractSubject(element, text) {
 
   const labeledLine = lines.find((line) => /(materia|curso|asignatura|c[aá]tedra)/i.test(line));
   if (labeledLine) {
-    return labeledLine.replace(/.*?(materia|curso|asignatura|c[aá]tedra)\s*:?\s*/i, "").trim();
+    const cleanedLabel = labeledLine
+      .replace(/.*?(materia|curso|asignatura|c[aá]tedra)\s*:?\s*/i, "")
+      .trim();
+    return detectSubjectFromText(cleanedLabel) || cleanedLabel;
   }
 
   return "Campus UCES";

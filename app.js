@@ -7,6 +7,38 @@ const SUBJECTS = [
   "Diseño de Interfaces",
 ];
 
+const SUBJECT_METADATA = [
+  {
+    name: SUBJECTS[0],
+    aliases: ["arquitectura en computadoras", "arquitectura", "computadoras"],
+  },
+  {
+    name: SUBJECTS[1],
+    aliases: [
+      "integracion tecnologico academica",
+      "integracion academica",
+      "integracion",
+      "ita",
+    ],
+  },
+  {
+    name: SUBJECTS[2],
+    aliases: ["base de datos i", "base de datos", "bd1", "sql"],
+  },
+  {
+    name: SUBJECTS[3],
+    aliases: ["programacion i", "programacion", "algoritmos"],
+  },
+  {
+    name: SUBJECTS[4],
+    aliases: ["diseno de objetos", "diseño de objetos", "objetos", "poo"],
+  },
+  {
+    name: SUBJECTS[5],
+    aliases: ["diseno de interfaces", "diseño de interfaces", "interfaces", "interfaz"],
+  },
+];
+
 const STORAGE_KEY = "uces-upcoming-assignments";
 const ALERTS_KEY = "uces-upcoming-alerts";
 
@@ -31,6 +63,7 @@ const subjectsMenuBtn = document.getElementById("subjectsMenuBtn");
 const remindersMenuBtn = document.getElementById("remindersMenuBtn");
 const subjectsDropdown = document.getElementById("subjectsDropdown");
 const remindersDropdown = document.getElementById("remindersDropdown");
+const subjectSections = document.getElementById("subjectSections");
 
 init();
 
@@ -69,13 +102,12 @@ function bindEvents() {
   });
 
   subjectsDropdown?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-subject-value]");
-    if (!button) {
+    const link = event.target.closest("[data-subject-anchor]");
+    if (!link) {
       return;
     }
 
-    subjectSelect.value = button.dataset.subjectValue || SUBJECTS[0];
-    document.getElementById("title")?.focus();
+    subjectSelect.value = link.dataset.subjectValue || SUBJECTS[0];
     closeDropdowns();
   });
 
@@ -178,10 +210,21 @@ function importAssignmentsFromCampus(items) {
 }
 
 function normalizeImportedAssignment(item) {
-  const rawText = [item?.title, item?.subject, item?.notes].filter(Boolean).join(" · ");
+  const rawText = [
+    item?.title,
+    item?.subject,
+    item?.course,
+    item?.materia,
+    item?.notes,
+    item?.context,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const title = String(item?.title || item?.name || item?.activity || "Actividad Campus")
     .trim();
-  const subject = inferSubject(item?.subject || item?.course || item?.materia || rawText);
+  const subject = inferSubject(
+    item?.subject || item?.course || item?.materia || item?.context || rawText
+  );
   const dueAt = normalizeDueAt(
     item?.dueAt || item?.dueDate || item?.deadline || item?.fecha || item?.date
   );
@@ -248,14 +291,27 @@ function normalizeDueAt(value) {
   return `${fullYear}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-function inferSubject(value) {
+function detectSubjectFromText(value) {
   const normalizedValue = normalizeText(value || "");
-  const matched = SUBJECTS.find((subject) =>
-    normalizedValue.includes(normalizeText(subject))
-  );
+  if (!normalizedValue) {
+    return "";
+  }
 
-  if (matched) {
-    return matched;
+  const bestMatch = SUBJECT_METADATA.map((entry) => ({
+    name: entry.name,
+    score: entry.aliases.reduce((total, alias) => {
+      const normalizedAlias = normalizeText(alias);
+      return total + (normalizedValue.includes(normalizedAlias) ? normalizedAlias.length : 0);
+    }, 0),
+  })).sort((a, b) => b.score - a.score)[0];
+
+  return bestMatch?.score ? bestMatch.name : "";
+}
+
+function inferSubject(value) {
+  const detectedSubject = detectSubjectFromText(value);
+  if (detectedSubject) {
+    return detectedSubject;
   }
 
   const fallback = String(value || "").trim();
@@ -266,7 +322,8 @@ function isDuplicateAssignment(candidate) {
   return state.assignments.some(
     (item) =>
       normalizeText(item.title) === normalizeText(candidate.title) &&
-      normalizeText(item.subject) === normalizeText(candidate.subject) &&
+      normalizeText(inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`)) ===
+        normalizeText(inferSubject(`${candidate.subject} ${candidate.title} ${candidate.notes || ""}`)) &&
       item.dueAt === candidate.dueAt
   );
 }
@@ -347,17 +404,29 @@ function render() {
   renderStats();
   renderHeaderMenus();
   renderAssignments();
+  renderSubjectSections();
 }
 
 function renderHeaderMenus() {
   if (subjectsDropdown) {
-    subjectsDropdown.innerHTML = SUBJECTS.map(
-      (subject) => `
-        <button class="dropdown-item" type="button" data-subject-value="${escapeHtml(subject)}">
-          ${escapeHtml(subject)}
-        </button>
-      `
-    ).join("");
+    subjectsDropdown.innerHTML = SUBJECTS.map((subject) => {
+      const anchorId = createSubjectAnchorId(subject);
+      const totalBySubject = state.assignments.filter(
+        (item) => inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`) === subject
+      ).length;
+
+      return `
+        <a
+          class="dropdown-item dropdown-link"
+          href="#${anchorId}"
+          data-subject-anchor="${anchorId}"
+          data-subject-value="${escapeHtml(subject)}"
+        >
+          <strong>${escapeHtml(subject)}</strong>
+          <small>${totalBySubject} actividad${totalBySubject === 1 ? "" : "es"}</small>
+        </a>
+      `;
+    }).join("");
   }
 
   const upcomingAssignments = state.assignments
@@ -388,12 +457,78 @@ function renderHeaderMenus() {
       return `
         <button class="dropdown-item reminder-dropdown-item" type="button" data-reminder-id="${item.id}">
           <strong>${escapeHtml(item.title)}</strong>
-          <span>${escapeHtml(item.subject)}</span>
+          <span>${escapeHtml(inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`))}</span>
           <small>${formatDue(item.dueAt)} · ${status.relative}</small>
         </button>
       `;
     })
     .join("");
+}
+
+function createSubjectAnchorId(subject) {
+  return `subject-${normalizeText(subject).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+function renderSubjectSections() {
+  if (!subjectSections) {
+    return;
+  }
+
+  subjectSections.innerHTML = SUBJECTS.map((subject) => {
+    const items = state.assignments
+      .filter((item) => inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`) === subject)
+      .sort((a, b) => {
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1;
+        }
+        return new Date(a.dueAt) - new Date(b.dueAt);
+      });
+
+    const upcomingForSubject = items.filter(
+      (item) => !item.completed && new Date(item.dueAt) >= new Date()
+    ).length;
+
+    return `
+      <section id="${createSubjectAnchorId(subject)}" class="subject-section">
+        <div class="subject-section-header">
+          <div>
+            <h3>${escapeHtml(subject)}</h3>
+            <p>
+              ${items.length ? `${upcomingForSubject} próxima${upcomingForSubject === 1 ? "" : "s"} · ${items.length} total` : "Sin actividades cargadas todavía."}
+            </p>
+          </div>
+          <span class="subject-count">${items.length}</span>
+        </div>
+
+        <div class="subject-assignments">
+          ${
+            items.length
+              ? items
+                  .map((item) => {
+                    const status = getStatus(item);
+                    return `
+                      <article class="subject-card">
+                        <div class="assignment-top">
+                          <div>
+                            <h4>${escapeHtml(item.title)}</h4>
+                            <p class="subject">${escapeHtml(inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`))}</p>
+                          </div>
+                          <span class="badge ${status.type}">${status.label}</span>
+                        </div>
+                        <div class="item-meta">
+                          <span>⏰ ${formatDue(item.dueAt)}</span>
+                          <span>${status.relative}</span>
+                        </div>
+                      </article>
+                    `;
+                  })
+                  .join("")
+              : '<div class="subject-empty">No hay actividades registradas para esta materia.</div>'
+          }
+        </div>
+      </section>
+    `;
+  }).join("");
 }
 
 function renderStats() {
@@ -428,12 +563,13 @@ function renderAssignments() {
   list.innerHTML = sorted
     .map((item) => {
       const status = getStatus(item);
+      const displaySubject = inferSubject(`${item.subject} ${item.title} ${item.notes || ""}`);
       return `
         <article class="assignment-item ${item.completed ? "completed" : ""}" data-assignment-id="${item.id}">
           <div class="assignment-top">
             <div>
               <h3>${escapeHtml(item.title)}</h3>
-              <p class="subject">${escapeHtml(item.subject)}</p>
+              <p class="subject">${escapeHtml(displaySubject)}</p>
             </div>
             <span class="badge ${status.type}">${status.label}</span>
           </div>
@@ -590,7 +726,10 @@ function loadExampleData() {
 
 function loadAssignments() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((item) => ({
+      ...item,
+      subject: inferSubject(`${item.subject || ""} ${item.title || ""} ${item.notes || ""}`),
+    }));
   } catch {
     return [];
   }
