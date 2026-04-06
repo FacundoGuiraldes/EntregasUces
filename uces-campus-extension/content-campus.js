@@ -78,14 +78,11 @@ function buildActivityFromElement(element, now, seen) {
     return null;
   }
 
-  const dueAt = parseDueAtFromText(text);
-  const hasUpcomingHint = /(proxim|pendient|abierta|fecha de entrega|fecha limite|vence|entrega)/i.test(
-    text
-  );
-
-  if (!dueAt && !hasUpcomingHint) {
+  if (!hasVisibleDeadline(text)) {
     return null;
   }
+
+  const dueAt = parseDueAtFromText(text);
 
   if (!dueAt || dueAt.getTime() < now.getTime()) {
     return null;
@@ -172,27 +169,72 @@ function extractSubject(element, text) {
   return "Campus UCES";
 }
 
+function hasVisibleDeadline(text) {
+  return /(cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|entrega\s+hasta|hasta\s+el)/i.test(
+    text
+  );
+}
+
 function parseDueAtFromText(text) {
-  const numericMatch = text.match(
-    /(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D+(\d{1,2})[:.](\d{2}))?/
+  const deadlineSegmentMatch = text.match(
+    /(cierre|fecha\s*(?:de\s*)?(?:cierre|entrega|l[ií]mite)|vence|vencimiento|entrega\s+hasta|hasta\s+el)\s*:?\s*(.{0,120})/i
   );
 
-  if (numericMatch) {
-    const [, day, month, year, hours = "23", minutes = "59"] = numericMatch;
-    const fullYear = year.length === 2 ? `20${year}` : year;
-    const result = new Date(
-      Number(fullYear),
-      Number(month) - 1,
-      Number(day),
-      Number(hours),
-      Number(minutes),
-      0,
-      0
-    );
-
-    return Number.isNaN(result.getTime()) ? null : result;
+  if (deadlineSegmentMatch) {
+    const deadlineCandidates = getDateCandidates(deadlineSegmentMatch[2]);
+    if (deadlineCandidates.length) {
+      return deadlineCandidates[0];
+    }
   }
 
+  const allCandidates = getDateCandidates(text);
+
+  if (/(apertura|inicio)/i.test(text) && allCandidates.length >= 2) {
+    return allCandidates[allCandidates.length - 1];
+  }
+
+  return null;
+}
+
+function getDateCandidates(text) {
+  const candidates = [];
+  const numericRegex = /(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})(?:\D+(\d{1,2})[:.](\d{2}))?/g;
+  const textRegex = /(\d{1,2})\s*(?:de\s+)?(ene|enero|feb|febrero|mar|marzo|abr|abril|may|mayo|jun|junio|jul|julio|ago|agosto|sep|sept|septiembre|oct|octubre|nov|noviembre|dic|diciembre)\s*(?:de\s+)?(\d{2,4})(?:\D+(\d{1,2})[:.](\d{2}))?/gi;
+  let match;
+
+  while ((match = numericRegex.exec(text)) !== null) {
+    const parsed = createDateFromParts(match[1], match[2], match[3], match[4], match[5]);
+    if (parsed) {
+      candidates.push(parsed);
+    }
+  }
+
+  while ((match = textRegex.exec(text)) !== null) {
+    const parsed = createDateFromTextMonth(match[1], match[2], match[3], match[4], match[5]);
+    if (parsed) {
+      candidates.push(parsed);
+    }
+  }
+
+  return candidates;
+}
+
+function createDateFromParts(day, month, year, hours = "23", minutes = "59") {
+  const fullYear = String(year).length === 2 ? `20${year}` : String(year);
+  const result = new Date(
+    Number(fullYear),
+    Number(month) - 1,
+    Number(day),
+    Number(hours),
+    Number(minutes),
+    0,
+    0
+  );
+
+  return Number.isNaN(result.getTime()) ? null : result;
+}
+
+function createDateFromTextMonth(day, monthName, year, hours = "23", minutes = "59") {
   const monthMap = {
     ene: 0,
     enero: 0,
@@ -221,28 +263,12 @@ function parseDueAtFromText(text) {
     diciembre: 11,
   };
 
-  const textMatch = text.match(
-    /(\d{1,2})\s+(ene|enero|feb|febrero|mar|marzo|abr|abril|may|mayo|jun|junio|jul|julio|ago|agosto|sep|sept|septiembre|oct|octubre|nov|noviembre|dic|diciembre)\s+(\d{2,4})(?:\D+(\d{1,2})[:.](\d{2}))?/i
-  );
-
-  if (!textMatch) {
+  const monthIndex = monthMap[String(monthName).toLowerCase()];
+  if (monthIndex === undefined) {
     return null;
   }
 
-  const [, day, monthName, year, hours = "23", minutes = "59"] = textMatch;
-  const monthIndex = monthMap[monthName.toLowerCase()];
-  const fullYear = year.length === 2 ? `20${year}` : year;
-  const result = new Date(
-    Number(fullYear),
-    monthIndex,
-    Number(day),
-    Number(hours),
-    Number(minutes),
-    0,
-    0
-  );
-
-  return Number.isNaN(result.getTime()) ? null : result;
+  return createDateFromParts(day, monthIndex + 1, year, hours, minutes);
 }
 
 function formatLocalIso(date) {

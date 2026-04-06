@@ -15,7 +15,7 @@ App web simple con diseño visual del alumno Facundo Guiraldes, inspirado en la 
 - Muestra cuáles están próximas, vencidas o completadas.
 - Guarda la información en el navegador (`localStorage`).
 - Puede mostrar notificaciones del navegador para entregas cercanas.
-- Soporta importación desde una extensión para leer las próximas entradas de la sección `ACTIVIDADES` de Campus UCES.
+- Soporta importación desde una extensión para leer las próximas entradas de la sección `ACTIVIDADES` de Campus UCES, filtrando solo las que tengan fecha de cierre o vencimiento visible.
 
 > Nota: las notificaciones funcionan mientras la app está abierta en `localhost`.
 
