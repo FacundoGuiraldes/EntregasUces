@@ -1,33 +1,12 @@
-const SUBJECT_METADATA = [
-  {
-    name: "Arquitectura en Computadoras",
-    aliases: ["arquitectura en computadoras", "arquitectura", "computadoras"],
-  },
-  {
-    name: "Integración Tecnológico Académica",
-    aliases: [
-      "integracion tecnologico academica",
-      "integracion academica",
-      "integracion",
-      "ita",
-    ],
-  },
-  {
-    name: "Base de Datos I",
-    aliases: ["base de datos i", "base de datos", "bd1", "sql"],
-  },
-  {
-    name: "Programación I",
-    aliases: ["programacion i", "programacion", "algoritmos"],
-  },
-  {
-    name: "Diseño de Objetos",
-    aliases: ["diseno de objetos", "diseño de objetos", "objetos", "poo"],
-  },
-  {
-    name: "Diseño de Interfaces",
-    aliases: ["diseno de interfaces", "diseño de interfaces", "interfaces", "interfaz"],
-  },
+const GENERIC_PAGE_LABELS = [
+  "campus",
+  "inicio",
+  "actividades",
+  "actividad",
+  "obligatorias",
+  "obligatoria",
+  "optativas",
+  "optativa",
 ];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -217,6 +196,22 @@ function isGenericSectionLabel(text) {
   );
 }
 
+function splitContextCandidate(value) {
+  return String(value || "")
+    .split(/\s*[>|»|/]\s*|\s+-\s+/g)
+    .map(cleanText)
+    .filter(Boolean);
+}
+
+function cleanSubjectCandidate(value) {
+  return cleanText(value)
+    .replace(/^(mis cursos|campus|inicio)\s*:?\s*/i, "")
+    .replace(/\b(?:unidad|u)\s*\d+\b.*$/i, "")
+    .replace(/\bactividades?\b.*$/i, "")
+    .replace(/\b(obligatorias?|optativas?)\b.*$/i, "")
+    .trim();
+}
+
 function getPageContextCandidates() {
   const candidateSelectors = [
     document.title,
@@ -229,7 +224,20 @@ function getPageContextCandidates() {
     document.querySelector('[data-region="course-content"] .sectionname')?.textContent,
   ];
 
-  return candidateSelectors.map(cleanText).filter(Boolean);
+  return candidateSelectors
+    .flatMap(splitContextCandidate)
+    .map(cleanSubjectCandidate)
+    .filter(Boolean)
+    .filter((candidate) => !isGenericPageLabel(candidate));
+}
+
+function isGenericPageLabel(value) {
+  const normalizedValue = normalizeText(value || "");
+  return (
+    !normalizedValue ||
+    GENERIC_PAGE_LABELS.includes(normalizedValue) ||
+    /^(unidad|u)\s*\d+$/i.test(cleanText(value))
+  );
 }
 
 function extractPageSubject() {
@@ -237,7 +245,7 @@ function extractPageSubject() {
 
   for (const candidate of candidates) {
     const detected = detectSubjectFromText(candidate);
-    if (detected) {
+    if (detected && !isGenericPageLabel(detected)) {
       return detected;
     }
   }
@@ -250,20 +258,20 @@ function getPageContextText() {
 }
 
 function detectSubjectFromText(value) {
-  const normalizedValue = normalizeText(value || "");
-  if (!normalizedValue) {
+  const cleanedValue = cleanSubjectCandidate(value);
+  if (!cleanedValue || isGenericPageLabel(cleanedValue)) {
     return "";
   }
 
-  const bestMatch = SUBJECT_METADATA.map((entry) => ({
-    name: entry.name,
-    score: entry.aliases.reduce((total, alias) => {
-      const normalizedAlias = normalizeText(alias);
-      return total + (normalizedValue.includes(normalizedAlias) ? normalizedAlias.length : 0);
-    }, 0),
-  })).sort((a, b) => b.score - a.score)[0];
+  const labelledMatch = cleanedValue.match(
+    /(?:materia|curso|asignatura|c[áa]tedra)\s*:?\s*(.+)$/i
+  );
 
-  return bestMatch?.score ? bestMatch.name : "";
+  if (labelledMatch?.[1]) {
+    return cleanSubjectCandidate(labelledMatch[1]);
+  }
+
+  return cleanedValue.length <= 80 ? cleanedValue : "";
 }
 
 function extractSubject(element, text, pageSubject = "") {
@@ -290,7 +298,7 @@ function extractSubject(element, text, pageSubject = "") {
     return detectSubjectFromText(cleanedLabel) || cleanedLabel;
   }
 
-  return "Campus UCES";
+  return "Sin materia asignada";
 }
 
 function hasVisibleDeadline(text) {

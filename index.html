@@ -58,18 +58,23 @@
     <main class="container">
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Estilo visual inspirado en UCES</p>
-          <h1>Gestioná tus entregas de la facultad en un solo lugar</h1>
+          <p class="eyebrow">Bitácora universitaria adaptable</p>
+          <h1>Una agenda UCES hecha para cualquier estudiante que quiera ordenar su cursada</h1>
           <p class="subtitle">
-            Organizá tus actividades de Arquitectura en Computadoras, Integración,
-            Base de Datos, Programación y Diseño con una estética institucional,
-            clara y profesional.
+            Sumá tus propias materias, importá actividades desde Campus y organizá
+            cierres, entregas y recordatorios con una vista más clara y práctica.
           </p>
+          <div class="hero-tags" aria-label="Características principales">
+            <span>Materias configurables</span>
+            <span>Importación desde Campus</span>
+            <span>Recordatorios claros</span>
+          </div>
         </div>
         <div class="hero-badge">
           <img src="assets/uces-logo.svg" alt="UCES" class="hero-logo" />
           <span class="badge-label">Materias activas</span>
-          <strong>6</strong>
+          <strong id="subjectCount">0</strong>
+          <p class="hero-mini">configurá tu propia cursada</p>
         </div>
       </section>
 
@@ -108,7 +113,7 @@
             class="import-badge"
           />
           <div>
-            <h2>🔄 Importar desde Campus UCES</h2>
+            <h2>🔄 Traer actividades desde Campus</h2>
             <p id="importStatus">
               Abrí una <strong>unidad de la materia</strong> o la sección <strong>ACTIVIDADES</strong>
               en Campus UCES y usá la extensión `UCES Importador` para cargar únicamente
@@ -125,7 +130,7 @@
 
       <div class="grid">
         <section class="panel">
-          <h2>Nueva entrega</h2>
+          <h2>Cargar entrega manual</h2>
           <form id="assignmentForm" class="form">
             <label>
               Título
@@ -136,6 +141,27 @@
               Materia
               <select id="subject" name="subject" required></select>
             </label>
+
+            <section class="subject-manager-card" aria-label="Gestión de materias">
+              <div class="subject-manager-header">
+                <div>
+                  <p class="subject-manager-title">Tus materias</p>
+                  <span class="subject-manager-note">Agregalas o quitalas cuando quieras</span>
+                </div>
+              </div>
+
+              <form id="subjectManagerForm" class="subject-manager-form">
+                <input
+                  id="newSubjectInput"
+                  name="newSubject"
+                  type="text"
+                  placeholder="Ej: Análisis Matemático"
+                />
+                <button class="secondary-btn" type="submit">Agregar materia</button>
+              </form>
+
+              <div id="subjectChipList" class="subject-chip-list"></div>
+            </section>
 
             <div class="split">
               <label>
@@ -164,8 +190,8 @@
         <section class="panel">
           <div class="list-header">
             <div>
-              <h2>Mis entregas</h2>
-              <p>Se guardan automáticamente en este navegador.</p>
+              <h2>Radar de pendientes</h2>
+              <p>Todo queda guardado en este navegador y ordenado por cercanía.</p>
             </div>
             <button id="clearAllBtn" class="danger-btn" type="button">Borrar todo</button>
           </div>
@@ -184,8 +210,8 @@
       <section class="panel subjects-overview">
         <div class="list-header">
           <div>
-            <h2>📘 Entregas por materia</h2>
-            <p>Cada sección agrupa las actividades que corresponden a tu materia.</p>
+            <h2>📘 Mapa de la cursada</h2>
+            <p>Cada bloque reúne lo que corresponde a una materia para verlo rápido.</p>
           </div>
         </div>
         <div id="subjectSections" class="subject-sections"></div>
@@ -193,9 +219,23 @@
     </main>
 
     <footer class="site-footer">
-      <div class="container footer-inner">
-        <p><strong>UCES · Agenda personal</strong></p>
-        <p>Diseño académico inspirado en la identidad institucional de la universidad.</p>
+      <div class="container footer-inner footer-grid">
+        <div>
+          <p><strong>UCES · Agenda de cursada</strong></p>
+          <p>Una herramienta flexible para que cualquier estudiante de UCES organice su semestre.</p>
+        </div>
+
+        <div class="footer-install-box">
+          <p><strong>Instalación de la extensión</strong></p>
+          <ol class="footer-install-steps">
+            <li>Abrí <code>chrome://extensions/</code> o <code>edge://extensions/</code>.</li>
+            <li>Activá <strong>Modo desarrollador</strong>.</li>
+            <li>Elegí <strong>Cargar descomprimida</strong>.</li>
+            <li>Seleccioná la carpeta <code>uces-campus-extension/</code>.</li>
+            <li>Si usás la app en <code>file:///</code>, activá <strong>Allow access to file URLs</strong>.</li>
+            <li>Después de cada cambio, tocá <strong>Recargar</strong> en la extensión.</li>
+          </ol>
+        </div>
       </div>
     </footer>
 

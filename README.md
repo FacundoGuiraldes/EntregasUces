@@ -1,16 +1,10 @@
 # UCES · Próximas Entregas
 
-App web simple con diseño visual del alumno Facundo Guiraldes, inspirado en la identidad verde y blanca de UCES para llevar el control de entregas de:
-
-- `Arquitectura en Computadoras`
-- `Integración Tecnológico Académica`
-- `Base de Datos I`
-- `Programación I`
-- `Diseño de Objetos`
-- `Diseño de Interfaces`
+App web simple para cualquier estudiante de UCES, pensada para organizar materias, actividades y fechas de cierre desde una sola interfaz.
 
 ## Qué hace
 
+- Permite agregar y quitar materias libremente.
 - Permite cargar actividades con materia, fecha y hora.
 - Muestra cuáles están próximas, vencidas o completadas.
 - Guarda la información en el navegador (`localStorage`).
