@@ -19,7 +19,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         ok: false,
         error:
-          "No se encontraron actividades próximas visibles. Abrí la sección ACTIVIDADES y volvé a intentar.",
+          "No se encontraron actividades próximas visibles. Abrí una unidad de la materia o la sección ACTIVIDADES donde aparezcan las entregas y volvé a intentar.",
       });
       return true;
     }
@@ -38,10 +38,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function extractUpcomingActivities() {
   const pageSnapshot = cleanText(`${document.title}\n${document.body?.innerText || ""}`);
 
-  if (!/actividades?/i.test(pageSnapshot)) {
-    throw new Error("Abrí la sección ACTIVIDADES de Campus UCES antes de importar.");
-  }
-
   const selectors = [
     '[class*="activity"]',
     '[id*="activity"]',
@@ -59,10 +55,20 @@ function extractUpcomingActivities() {
   const seen = new Set();
   const now = new Date();
 
+  const activityContextVisible = /(actividades?|apertura|cierre|fecha\s+de\s+entrega|fecha\s+l[ií]mite|vencimiento|obligatorias?|unidad|gu[ií]a|foro|tarea)/i.test(
+    pageSnapshot
+  );
+
   const activities = elements
     .map((element) => buildActivityFromElement(element, now, seen))
     .filter(Boolean)
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+
+  if (!activities.length && !activityContextVisible) {
+    throw new Error(
+      "Abrí una unidad de la materia o la sección ACTIVIDADES donde se vean entregas con fecha límite."
+    );
+  }
 
   return activities.slice(0, 50);
 }
@@ -140,14 +146,17 @@ function extractTitle(element) {
       (line) =>
         line.length > 4 &&
         line.length <= 120 &&
-        !/(actividad|estado|fecha|entrega|vence|pr[oó]xima|pendiente)/i.test(line) &&
+        !/(estado|fecha|apertura|cierre|vence|pr[oó]xima|pendiente|obligatorias?)/i.test(line) &&
         !/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.test(line)
     ) || ""
   );
 }
 
 function extractSubject(element, text) {
-  const normalizedText = normalizeText(text);
+  const pageHeading = cleanText(
+    `${document.title} ${document.querySelector('h1, h2, .page-header-headings h1, .page-title')?.textContent || ""}`
+  );
+  const normalizedText = normalizeText(`${pageHeading} ${text}`);
   const matchedSubject = SUBJECT_HINTS.find((subject) =>
     normalizedText.includes(normalizeText(subject))
   );

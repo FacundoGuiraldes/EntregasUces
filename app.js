@@ -40,7 +40,7 @@ function init() {
   bindEvents();
   bindImportBridge();
   updateImportStatus(
-    "Esperando actividades próximas importadas desde la sección ACTIVIDADES de Campus UCES."
+    "Esperando actividades próximas importadas desde una unidad de la materia o desde la sección ACTIVIDADES de Campus UCES."
   );
   render();
   updateNotificationUI();
