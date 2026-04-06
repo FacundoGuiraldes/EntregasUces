@@ -13,12 +13,16 @@ async function handleSync() {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!activeTab?.id || !/uces\.edu\.ar/i.test(activeTab.url || "")) {
-      throw new Error("Abrí primero Campus UCES en la sección ACTIVIDADES.");
+      throw new Error(
+        "Abrí primero una unidad o la sección ACTIVIDADES dentro de Campus UCES."
+      );
     }
 
-    const response = await chrome.tabs.sendMessage(activeTab.id, {
-      type: "UCES_EXTRACT_ACTIVITIES",
-    });
+    const response = await sendMessageWithRetry(
+      activeTab.id,
+      { type: "UCES_EXTRACT_ACTIVITIES" },
+      ["content-campus.js"]
+    );
 
     if (!response?.ok) {
       throw new Error(
@@ -35,12 +39,12 @@ async function handleSync() {
 
     if (appTab?.id) {
       await chrome.tabs.update(appTab.id, { active: true });
-      await chrome.tabs.sendMessage(appTab.id, {
-        type: "UCES_IMPORT_TO_APP",
-        assignments: response.activities,
-      });
-      setStatus(`Se importaron ${response.activities.length} actividades en la app.`);
-      return;
+      const delivered = await tryDeliverToApp(appTab.id, response.activities);
+
+      if (delivered) {
+        setStatus(`Se importaron ${response.activities.length} actividades en la app.`);
+        return;
+      }
     }
 
     await chrome.tabs.create({ url: DEFAULT_APP_URL });
@@ -49,6 +53,52 @@ async function handleSync() {
     );
   } catch (error) {
     setStatus(error.message || "Ocurrió un error durante la importación.", true);
+  }
+}
+
+async function sendMessageWithRetry(tabId, message, files) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, message);
+  } catch (error) {
+    const errorMessage = error?.message || "";
+
+    if (!/Receiving end does not exist|Could not establish connection/i.test(errorMessage)) {
+      throw error;
+    }
+
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files,
+    });
+
+    return chrome.tabs.sendMessage(tabId, message);
+  }
+}
+
+async function tryDeliverToApp(tabId, assignments) {
+  try {
+    const response = await sendMessageWithRetry(
+      tabId,
+      {
+        type: "UCES_IMPORT_TO_APP",
+        assignments,
+      },
+      ["content-app.js"]
+    );
+
+    return Boolean(response?.ok);
+  } catch (error) {
+    const message = error?.message || "";
+
+    if (/Cannot access contents of url|Cannot access a chrome:\/\//i.test(message)) {
+      setStatus(
+        "La app está abierta pero el navegador no permite conectarla todavía. Si usás file:/// activá 'Allow access to file URLs' y recargá la extensión.",
+        true
+      );
+      return false;
+    }
+
+    throw error;
   }
 }
 

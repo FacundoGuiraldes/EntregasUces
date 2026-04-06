@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "UCES Importador de Actividades",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Extrae las próximas actividades desde Campus UCES y las carga en la app Entregas UCES.",
-  "permissions": ["activeTab", "tabs", "storage"],
+  "permissions": ["activeTab", "tabs", "storage", "scripting"],
   "host_permissions": [
     "https://*.uces.edu.ar/*",
     "http://localhost/*",
