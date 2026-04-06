@@ -52,6 +52,17 @@ function extractUpcomingActivities() {
   ];
 
   const elements = [...document.querySelectorAll(selectors.join(','))];
+  const candidateElements = elements.filter((element) => isLikelyActivityElement(element));
+  const leafElements = candidateElements.filter(
+    (element) =>
+      !candidateElements.some(
+        (other) =>
+          other !== element &&
+          element.contains(other) &&
+          cleanText(other.innerText || "").length < cleanText(element.innerText || "").length
+      )
+  );
+
   const seen = new Set();
   const now = new Date();
 
@@ -59,7 +70,7 @@ function extractUpcomingActivities() {
     pageSnapshot
   );
 
-  const activities = elements
+  const activities = leafElements
     .map((element) => buildActivityFromElement(element, now, seen))
     .filter(Boolean)
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
@@ -128,11 +139,11 @@ function buildActivityFromElement(element, now, seen) {
 
 function extractTitle(element) {
   const preferred = cleanText(
-    element.querySelector('h1, h2, h3, h4, strong, b, a, .title, .name, .instancename')
+    element.querySelector('a, .aalink, .instancename, .title, .name, h3, h4, strong, b')
       ?.textContent || ""
   );
 
-  if (preferred && preferred.length <= 120) {
+  if (preferred && preferred.length <= 120 && !isGenericSectionLabel(preferred)) {
     return preferred;
   }
 
@@ -146,9 +157,37 @@ function extractTitle(element) {
       (line) =>
         line.length > 4 &&
         line.length <= 120 &&
-        !/(estado|fecha|apertura|cierre|vence|pr[oó]xima|pendiente|obligatorias?)/i.test(line) &&
+        !isGenericSectionLabel(line) &&
+        !/(estado|fecha|apertura|cierre|vence|pr[oó]xima|pendiente|disponible\s+desde)/i.test(line) &&
         !/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/.test(line)
     ) || ""
+  );
+}
+
+function isLikelyActivityElement(element) {
+  const text = cleanText(element.innerText || "");
+
+  if (text.length < 20 || text.length > 800) {
+    return false;
+  }
+
+  if (!hasVisibleDeadline(text)) {
+    return false;
+  }
+
+  if (isGenericSectionLabel(text)) {
+    return false;
+  }
+
+  return Boolean(
+    element.querySelector('a, .aalink, .instancename, .title, .name, strong, b') ||
+      /(apertura|cierre|fecha\s+de\s+entrega|fecha\s+l[ií]mite|vence)/i.test(text)
+  );
+}
+
+function isGenericSectionLabel(text) {
+  return /^(actividades?|obligatorias?|optativas?|disponible\s+desde.*)$/i.test(
+    cleanText(text)
   );
 }
 
